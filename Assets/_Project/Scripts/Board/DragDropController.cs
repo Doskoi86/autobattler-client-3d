@@ -111,10 +111,9 @@ namespace AutoBattler.Client.Board
             _dragSource = source;
             _dragShopIndex = shopIndex;
 
-            // Animation de pickup
+            // Légère augmentation de taille, pas de déplacement
+            // (le UpdateDrag prend le relais immédiatement pour suivre le curseur)
             _draggedObject.DOKill();
-            _draggedObject.DOMove(_dragStartPosition + Vector3.up * dragLiftHeight, pickupDuration)
-                .SetEase(Ease.OutBack);
             _draggedObject.DOScale(_dragStartScale * dragScale, pickupDuration)
                 .SetEase(Ease.OutBack);
 
@@ -138,9 +137,11 @@ namespace AutoBattler.Client.Board
             if (_dragPlane.Raycast(ray, out float distance))
             {
                 var worldPos = ray.GetPoint(distance);
+                // La carte suit le curseur directement sur le plan, avec un léger lift
+                // pour qu'elle ne traverse pas le plateau
                 _draggedObject.position = new Vector3(
                     worldPos.x,
-                    dragPlaneHeight + dragLiftHeight,
+                    dragPlaneHeight + 0.15f,
                     worldPos.z
                 );
             }
