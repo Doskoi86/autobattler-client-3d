@@ -53,7 +53,9 @@ namespace AutoBattler.Client.Cards
         private Camera _mainCamera;
 
         // IDraggable
-        public bool CanDrag => !_isDragging;
+        /// <summary>Si false, la carte ne peut pas être draggée (ex: cartes du shop)</summary>
+        public bool DragEnabled { get; set; } = true;
+        public bool CanDrag => DragEnabled && !_isDragging;
         public string MinionInstanceId => _data?.InstanceId;
 
         /// <summary>Données du minion affichées par cette carte</summary>

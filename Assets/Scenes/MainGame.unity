@@ -587,6 +587,76 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1299413510
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1299413513}
+  - component: {fileID: 1299413512}
+  - component: {fileID: 1299413511}
+  m_Layer: 0
+  m_Name: GameHUD
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1299413511
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299413510}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2527318f91c82848a5a6ff408d5cf62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.UI.HUD.HUDBuilder
+  gameHUD: {fileID: 1299413512}
+--- !u!114 &1299413512
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299413510}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b02a1698a1efa694a9e509a5e2e12793, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.UI.HUD.GameHUD
+  goldText: {fileID: 0}
+  tierText: {fileID: 0}
+  timerText: {fileID: 0}
+  phaseText: {fileID: 0}
+  upgradeCostText: {fileID: 0}
+  rerollButton: {fileID: 0}
+  freezeButton: {fileID: 0}
+  upgradeButton: {fileID: 0}
+  readyButton: {fileID: 0}
+  rerollButtonText: {fileID: 0}
+  freezeButtonText: {fileID: 0}
+  upgradeButtonText: {fileID: 0}
+--- !u!4 &1299413513
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299413510}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.01151, y: 4.09396, z: -3.87729}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1345052245
 GameObject:
   m_ObjectHideFlags: 0
@@ -700,6 +770,58 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1764200444
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1764200445}
+  - component: {fileID: 1764200446}
+  m_Layer: 0
+  m_Name: ShopManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1764200445
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1764200444}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.01151, y: 4.09396, z: -3.87729}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1764200446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1764200444}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bfa9ff4ab91cfd4a995e4b74ff537ee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Shop.ShopManager
+  shopY: 0.1
+  shopZ: 5.5
+  shopSpacing: 1.8
+  handZ: -3.5
+  handSpacing: 1.6
+  buyAnimDuration: 0.4
+  sellAnimDuration: 0.25
+  rerollAnimDuration: 0.3
 --- !u!1 &2122288975
 GameObject:
   m_ObjectHideFlags: 0
@@ -729,9 +851,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c72b169d45f7a441aa222778127f850, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Core.GameBootstrap
-  shopY: 0.1
-  shopZ: 5.5
-  shopSpacing: 1.8
 --- !u!4 &2122288977
 Transform:
   m_ObjectHideFlags: 0
@@ -806,3 +925,5 @@ SceneRoots:
   - {fileID: 317567851}
   - {fileID: 1345052249}
   - {fileID: 650099225}
+  - {fileID: 1764200445}
+  - {fileID: 1299413513}
