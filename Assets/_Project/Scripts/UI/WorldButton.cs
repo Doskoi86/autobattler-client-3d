@@ -78,11 +78,21 @@ namespace AutoBattler.Client.UI
 
         private void Update()
         {
-            if (_mainCamera == null || Mouse.current == null) return;
+            if (_mainCamera == null || Mouse.current == null || _collider == null) return;
 
-            // Hover detection par raycast
+            // Hover/click detection par RaycastAll (ignore les objets devant le bouton)
             var ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
-            bool hitThis = Physics.Raycast(ray, out RaycastHit hit, 100f) && hit.collider == _collider;
+            bool hitThis = false;
+
+            var hits = Physics.RaycastAll(ray, 100f);
+            foreach (var h in hits)
+            {
+                if (h.collider == _collider)
+                {
+                    hitThis = true;
+                    break;
+                }
+            }
 
             if (hitThis && !_isHovered)
             {

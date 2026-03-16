@@ -312,8 +312,7 @@ namespace AutoBattler.Client.Network
         public Task FreezeShopAsync()
         {
             _shopFrozen = !_shopFrozen;
-            if (_shopFrozen)
-                OnShopFrozen?.Invoke();
+            OnShopFrozen?.Invoke();
             Debug.Log($"[MockServer] Shop {(_shopFrozen ? "gelé" : "dégelé")}");
             return Task.CompletedTask;
         }
