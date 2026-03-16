@@ -12,45 +12,42 @@ namespace AutoBattler.Client.Shop
 {
     /// <summary>
     /// Gère la phase Shop : affichage des offres, achat par clic,
-    /// vente, reroll, freeze, level up. Connecté à IServerBridge.
+    /// vente, reroll, freeze, level up.
+    ///
+    /// Le positionnement des cartes est basé sur la ShopZone du BoardSurface.
+    /// La zone est un GameObject visible dans la scène — déplacer la zone
+    /// dans l'éditeur déplace automatiquement les cartes du shop.
+    ///
+    /// 📋 DANS UNITY EDITOR :
+    /// 1. Créer un GameObject "ShopManager" dans la Hierarchy
+    /// 2. Add Component → ShopManager
+    /// 3. Les cartes du shop apparaîtront centrées sur la ShopZone du BoardSurface
     /// </summary>
     public class ShopManager : MonoBehaviour
     {
         public static ShopManager Instance { get; private set; }
 
         [Header("Shop Layout")]
-        [Tooltip("Position Y des cartes du shop")]
-        [SerializeField] private float shopY = 0.1f;
-        [Tooltip("Position Z des cartes du shop (devant le plateau)")]
-        [SerializeField] private float shopZ = 5.5f;
         [Tooltip("Espacement entre les cartes du shop")]
         [SerializeField] private float shopSpacing = 1.8f;
 
-        [Header("Hand Layout")]
-        [Tooltip("Position Z de la zone de main")]
-        [SerializeField] private float handZ = -3.5f;
-        [Tooltip("Espacement des cartes en main")]
-        [SerializeField] private float handSpacing = 1.6f;
-
         [Header("Animation")]
-        [SerializeField] private float buyAnimDuration = 0.4f;
         [SerializeField] private float sellAnimDuration = 0.25f;
         [SerializeField] private float rerollAnimDuration = 0.3f;
 
-        // État
+        // Cartes actuellement dans le shop
         private List<CardVisual> _shopCards = new List<CardVisual>();
-        private List<CardVisual> _handCards = new List<CardVisual>();
-        private Dictionary<string, CardVisual> _allCards = new Dictionary<string, CardVisual>();
+        private Dictionary<string, CardVisual> _shopCardMap = new Dictionary<string, CardVisual>();
         private int _currentGold;
         private int _currentTier;
         private int _upgradeCost;
         private bool _isFrozen;
 
         // Events pour le HUD
-        public event System.Action<int> OnGoldChanged;           // gold
-        public event System.Action<int, int> OnTierChanged;      // tier, upgradeCost
-        public event System.Action<bool> OnFreezeChanged;         // isFrozen
-        public event System.Action<string, int, int> OnPhaseInfo; // phase, turn, duration
+        public event System.Action<int> OnGoldChanged;
+        public event System.Action<int, int> OnTierChanged;
+        public event System.Action<bool> OnFreezeChanged;
+        public event System.Action<string, int, int> OnPhaseInfo;
 
         public int CurrentGold => _currentGold;
         public int CurrentTier => _currentTier;
@@ -71,7 +68,6 @@ namespace AutoBattler.Client.Shop
             server.OnShopRefreshed += HandleShopRefreshed;
             server.OnMinionBought += HandleMinionBought;
             server.OnMinionSold += HandleMinionSold;
-            server.OnHandUpdated += HandleHandUpdated;
             server.OnBoardUpdated += HandleBoardUpdated;
             server.OnTavernUpgraded += HandleTavernUpgraded;
             server.OnShopFrozen += HandleShopFrozen;
@@ -87,7 +83,6 @@ namespace AutoBattler.Client.Shop
             server.OnShopRefreshed -= HandleShopRefreshed;
             server.OnMinionBought -= HandleMinionBought;
             server.OnMinionSold -= HandleMinionSold;
-            server.OnHandUpdated -= HandleHandUpdated;
             server.OnBoardUpdated -= HandleBoardUpdated;
             server.OnTavernUpgraded -= HandleTavernUpgraded;
             server.OnShopFrozen -= HandleShopFrozen;
@@ -96,10 +91,23 @@ namespace AutoBattler.Client.Shop
         }
 
         // =====================================================
-        // ACTIONS JOUEUR (appelées par les boutons UI)
+        // ZONE DE RÉFÉRENCE
         // =====================================================
 
-        /// <summary>Acheter une carte du shop par son index. Retourne false si impossible.</summary>
+        /// <summary>Position centrale de la zone shop (depuis le BoardSurface)</summary>
+        private Vector3 ShopCenter
+        {
+            get
+            {
+                var zone = BoardSurface.Instance?.ShopZone;
+                return zone != null ? zone.position : new Vector3(0f, 0.1f, 5.5f);
+            }
+        }
+
+        // =====================================================
+        // ACTIONS JOUEUR
+        // =====================================================
+
         public bool BuyCard(int shopIndex)
         {
             if (_currentGold < 3)
@@ -111,13 +119,11 @@ namespace AutoBattler.Client.Shop
             return true;
         }
 
-        /// <summary>Vendre un minion par son InstanceId</summary>
         public void SellCard(string instanceId)
         {
             GameManager.Instance.Server?.SellMinionAsync(instanceId);
         }
 
-        /// <summary>Reroll le shop</summary>
         public void Reroll()
         {
             if (_currentGold < 1)
@@ -128,13 +134,11 @@ namespace AutoBattler.Client.Shop
             GameManager.Instance.Server?.RefreshShopAsync();
         }
 
-        /// <summary>Toggle freeze du shop</summary>
         public void ToggleFreeze()
         {
             GameManager.Instance.Server?.FreezeShopAsync();
         }
 
-        /// <summary>Level up la taverne</summary>
         public void UpgradeTavern()
         {
             if (_currentGold < _upgradeCost)
@@ -145,7 +149,6 @@ namespace AutoBattler.Client.Shop
             GameManager.Instance.Server?.UpgradeTavernAsync();
         }
 
-        /// <summary>Prêt pour le combat</summary>
         public void ReadyForCombat()
         {
             GameManager.Instance.Server?.ReadyForCombatAsync();
@@ -170,12 +173,12 @@ namespace AutoBattler.Client.Shop
             _currentGold = gold;
             OnGoldChanged?.Invoke(_currentGold);
 
-            // Retirer la carte du shop visuellement
             var shopCard = _shopCards.FirstOrDefault(c => c != null && c.Data?.InstanceId == instanceId);
             if (shopCard != null)
             {
                 shopCard.AnimateDeath();
                 _shopCards[_shopCards.IndexOf(shopCard)] = null;
+                _shopCardMap.Remove(instanceId);
             }
 
             Debug.Log($"[Shop] Acheté {name} — Or : {gold}");
@@ -185,26 +188,11 @@ namespace AutoBattler.Client.Shop
         {
             _currentGold = gold;
             OnGoldChanged?.Invoke(_currentGold);
-
-            // Retirer la carte visuellement
-            if (_allCards.TryGetValue(instanceId, out var card) && card != null)
-            {
-                card.transform.DOScale(0f, sellAnimDuration).SetEase(Ease.InBack)
-                    .OnComplete(() => Destroy(card.gameObject));
-                _allCards.Remove(instanceId);
-            }
-
             Debug.Log($"[Shop] Vendu — Or : {gold}");
-        }
-
-        private void HandleHandUpdated(List<MinionState> minions)
-        {
-            RefreshHandVisuals(minions);
         }
 
         private void HandleBoardUpdated(List<MinionState> minions)
         {
-            // Le BoardManager gère le board — ici on met juste à jour le tracking
             Debug.Log($"[Shop] Board mis à jour : {minions.Count} minions");
         }
 
@@ -225,7 +213,6 @@ namespace AutoBattler.Client.Shop
             _isFrozen = !_isFrozen;
             OnFreezeChanged?.Invoke(_isFrozen);
 
-            // Effet visuel de gel sur les cartes du shop
             foreach (var card in _shopCards)
             {
                 if (card == null) continue;
@@ -245,7 +232,6 @@ namespace AutoBattler.Client.Shop
                 _isFrozen = false;
                 OnFreezeChanged?.Invoke(false);
 
-                // Le tier est au minimum 1 dès le premier tour
                 if (_currentTier < 1) _currentTier = 1;
                 OnTierChanged?.Invoke(_currentTier, _upgradeCost);
             }
@@ -257,27 +243,26 @@ namespace AutoBattler.Client.Shop
         }
 
         // =====================================================
-        // VISUELS
+        // VISUELS SHOP
         // =====================================================
 
         private void RefreshShopVisuals(List<ShopOfferState> offers)
         {
-            // Nettoyer les anciennes cartes
             foreach (var card in _shopCards)
             {
                 if (card != null)
                 {
-                    _allCards.Remove(card.Data?.InstanceId ?? "");
-                    Destroy(card.gameObject);
+                    _shopCardMap.Remove(card.Data?.InstanceId ?? "");
+                    card.gameObject.SetActive(false);
                 }
             }
             _shopCards.Clear();
 
             if (CardFactory.Instance == null) return;
 
-            // Créer les nouvelles cartes
+            var center = ShopCenter;
             float totalWidth = (offers.Count - 1) * shopSpacing;
-            float startX = -totalWidth / 2f;
+            float startX = center.x - totalWidth / 2f;
 
             for (int i = 0; i < offers.Count; i++)
             {
@@ -296,9 +281,10 @@ namespace AutoBattler.Client.Shop
                 };
 
                 var card = CardFactory.Instance.CreateCard(minionData);
-                var targetPos = new Vector3(startX + i * shopSpacing, shopY, shopZ);
+                if (card == null) continue;
 
-                // Animation d'apparition
+                var targetPos = new Vector3(startX + i * shopSpacing, center.y, center.z);
+
                 card.transform.position = targetPos + Vector3.up * 2f;
                 card.transform.localScale = Vector3.zero;
                 card.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad)
@@ -308,48 +294,15 @@ namespace AutoBattler.Client.Shop
 
                 card.SetBasePosition(targetPos);
 
-                // Ajouter un composant pour identifier cette carte comme carte shop
-                var clickHandler = card.gameObject.AddComponent<ShopCardClick>();
-                clickHandler.Setup(i, this);
+                var clickHandler = card.GetComponent<ShopCardClick>();
+                if (clickHandler != null)
+                {
+                    clickHandler.enabled = true;
+                    clickHandler.Setup(i, this);
+                }
 
                 _shopCards.Add(card);
-                _allCards[offer.InstanceId] = card;
-            }
-        }
-
-        private void RefreshHandVisuals(List<MinionState> minions)
-        {
-            // Nettoyer les cartes en main qui ne sont plus présentes
-            var currentIds = new HashSet<string>(minions.Select(m => m.InstanceId));
-            var toRemove = _handCards.Where(c => c != null && !currentIds.Contains(c.Data?.InstanceId ?? "")).ToList();
-            foreach (var card in toRemove)
-            {
-                _allCards.Remove(card.Data?.InstanceId ?? "");
-                Destroy(card.gameObject);
-                _handCards.Remove(card);
-            }
-
-            // Ajouter les nouvelles cartes en main
-            foreach (var minion in minions)
-            {
-                if (_allCards.ContainsKey(minion.InstanceId)) continue;
-
-                if (CardFactory.Instance == null) continue;
-                var card = CardFactory.Instance.CreateCard(minion);
-                _handCards.Add(card);
-                _allCards[minion.InstanceId] = card;
-            }
-
-            // Repositionner toutes les cartes en main
-            float totalWidth = (_handCards.Count - 1) * handSpacing;
-            float startX = -totalWidth / 2f;
-
-            for (int i = 0; i < _handCards.Count; i++)
-            {
-                if (_handCards[i] == null) continue;
-                var targetPos = new Vector3(startX + i * handSpacing, shopY, handZ);
-                _handCards[i].transform.DOMove(targetPos, 0.3f).SetEase(Ease.OutQuad);
-                _handCards[i].SetBasePosition(targetPos);
+                _shopCardMap[offer.InstanceId] = card;
             }
         }
     }

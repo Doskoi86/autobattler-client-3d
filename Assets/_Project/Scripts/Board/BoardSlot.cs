@@ -6,6 +6,14 @@ namespace AutoBattler.Client.Board
     /// Représente un emplacement sur le plateau de jeu.
     /// Chaque slot connaît son index, sa position, et peut contenir un minion.
     /// Gère le highlight visuel (glow vert/rouge) pendant le drag & drop.
+    ///
+    /// 📋 CRÉER LE PREFAB BoardSlot :
+    /// 1. Hierarchy → 3D Object → Quad → renommer "BoardSlot"
+    /// 2. Rotation X = 90 (à plat), Scale = (1.4, 1.8, 1)
+    /// 3. Assigner un Material semi-transparent (Assets/_Project/Materials/SlotDefault.mat)
+    /// 4. Add Component → BoardSlot
+    /// 5. Glisser le MeshRenderer du Quad vers "Highlight Renderer"
+    /// 6. Glisser BoardSlot → Assets/_Project/Prefabs/ pour créer le prefab
     /// </summary>
     public class BoardSlot : MonoBehaviour
     {
@@ -19,6 +27,9 @@ namespace AutoBattler.Client.Board
         private Color _validColor = new Color(0f, 1f, 0.3f, 0.4f);    // Vert transparent
         private Color _invalidColor = new Color(1f, 0.2f, 0.2f, 0.4f); // Rouge transparent
 
+        private MaterialPropertyBlock _mpb;
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+
         /// <summary>Index de ce slot sur le board (0-6)</summary>
         public int SlotIndex => slotIndex;
 
@@ -30,9 +41,15 @@ namespace AutoBattler.Client.Board
 
         private void Awake()
         {
+            _mpb = new MaterialPropertyBlock();
+
             if (highlightRenderer != null)
             {
-                _defaultColor = highlightRenderer.material.color;
+                highlightRenderer.GetPropertyBlock(_mpb);
+                _defaultColor = _mpb.GetColor(BaseColorId);
+                // Si le MPB n'a pas encore de couleur, lire depuis le sharedMaterial
+                if (_defaultColor == Color.clear && highlightRenderer.sharedMaterial != null)
+                    _defaultColor = highlightRenderer.sharedMaterial.color;
                 highlightRenderer.enabled = false;
             }
         }
@@ -69,7 +86,7 @@ namespace AutoBattler.Client.Board
         {
             if (highlightRenderer == null) return;
             highlightRenderer.enabled = true;
-            highlightRenderer.material.color = isValid ? _validColor : _invalidColor;
+            SetHighlightColor(isValid ? _validColor : _invalidColor);
         }
 
         /// <summary>
@@ -79,7 +96,14 @@ namespace AutoBattler.Client.Board
         {
             if (highlightRenderer == null) return;
             highlightRenderer.enabled = false;
-            highlightRenderer.material.color = _defaultColor;
+            SetHighlightColor(_defaultColor);
+        }
+
+        private void SetHighlightColor(Color color)
+        {
+            highlightRenderer.GetPropertyBlock(_mpb);
+            _mpb.SetColor(BaseColorId, color);
+            highlightRenderer.SetPropertyBlock(_mpb);
         }
     }
 }

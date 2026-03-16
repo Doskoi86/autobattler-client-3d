@@ -9,16 +9,16 @@ namespace AutoBattler.Client.Board
     /// <summary>
     /// Gère le plateau de jeu : création des slots, placement des minions,
     /// réorganisation dynamique et synchronisation avec le serveur.
+    ///
+    /// 📋 DANS UNITY EDITOR :
+    /// 1. Créer le prefab BoardSlot (voir BoardSlot.cs pour les instructions)
+    /// 2. Sélectionner le GameObject "BoardManager" dans la Hierarchy
+    /// 3. Glisser le prefab BoardSlot depuis Assets/_Project/Prefabs/ vers "Slot Prefab"
+    ///    ⚠️ Ce champ est OBLIGATOIRE — le board ne fonctionnera pas sans prefab
     /// </summary>
     public class BoardManager : MonoBehaviour
     {
         [Header("Board Settings")]
-        [Tooltip("Centre du board joueur (position world)")]
-        [SerializeField] private Vector3 playerBoardCenter = new Vector3(0f, 0.1f, -1f);
-
-        [Tooltip("Centre du board adversaire (miroir)")]
-        [SerializeField] private Vector3 opponentBoardCenter = new Vector3(0f, 0.1f, 3f);
-
         [Tooltip("Espacement entre les slots")]
         [SerializeField] private float slotSpacing = 1.8f;
 
@@ -29,7 +29,7 @@ namespace AutoBattler.Client.Board
         [SerializeField] private int maxSlots = 7;
 
         [Header("References")]
-        [Tooltip("Prefab d'un slot (quad avec collider)")]
+        [Tooltip("Prefab d'un slot (Quad + BoardSlot component + Material)")]
         [SerializeField] private GameObject slotPrefab;
 
         [Header("Animation")]
@@ -50,50 +50,48 @@ namespace AutoBattler.Client.Board
         /// <summary>Liste des slots adversaire</summary>
         public IReadOnlyList<BoardSlot> OpponentSlots => _opponentSlots;
 
+        /// <summary>Centre du board joueur (depuis la zone BoardSurface)</summary>
+        private Vector3 PlayerBoardCenter =>
+            BoardSurface.Instance?.PlayerBoardZone != null
+                ? BoardSurface.Instance.PlayerBoardZone.position
+                : new Vector3(0f, 0.1f, -1f);
+
+        /// <summary>Centre du board adversaire (depuis la zone BoardSurface)</summary>
+        private Vector3 OpponentBoardCenter =>
+            BoardSurface.Instance?.OpponentBoardZone != null
+                ? BoardSurface.Instance.OpponentBoardZone.position
+                : new Vector3(0f, 0.1f, 3f);
+
         private void Awake()
         {
-            CreateSlots(_playerSlots, playerBoardCenter, false);
-            CreateSlots(_opponentSlots, opponentBoardCenter, true);
+            if (slotPrefab == null)
+            {
+                Debug.LogError("[BoardManager] slotPrefab non assigné ! Glisser le prefab BoardSlot dans l'Inspector.");
+                return;
+            }
+
+            CreateSlots(_playerSlots, PlayerBoardCenter);
+            CreateSlots(_opponentSlots, OpponentBoardCenter);
         }
 
         // =====================================================
         // CRÉATION DES SLOTS
         // =====================================================
 
-        private void CreateSlots(List<BoardSlot> slotList, Vector3 center, bool isOpponent)
+        private void CreateSlots(List<BoardSlot> slotList, Vector3 center)
         {
             var positions = BoardLayout.CalculatePositions(maxSlots, center, slotSpacing, arcAmount);
 
             for (int i = 0; i < maxSlots; i++)
             {
-                GameObject slotObj;
-                if (slotPrefab != null)
-                {
-                    slotObj = Instantiate(slotPrefab, positions[i], Quaternion.identity, transform);
-                }
-                else
-                {
-                    // Fallback : créer un quad simple comme placeholder
-                    slotObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    slotObj.transform.SetParent(transform);
-                    slotObj.transform.position = positions[i];
-                    slotObj.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                    slotObj.transform.localScale = new Vector3(1.4f, 1.8f, 1f);
-
-                    // Material semi-transparent
-                    var renderer = slotObj.GetComponent<MeshRenderer>();
-                    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                    mat.SetFloat("_Surface", 1); // Transparent
-                    mat.SetFloat("_Blend", 0);
-                    mat.color = isOpponent
-                        ? new Color(1f, 0.3f, 0.3f, 0.15f)
-                        : new Color(0.3f, 0.6f, 1f, 0.15f);
-                    renderer.material = mat;
-                }
+                var slotObj = Instantiate(slotPrefab, positions[i], Quaternion.identity, transform);
 
                 var slot = slotObj.GetComponent<BoardSlot>();
                 if (slot == null)
-                    slot = slotObj.AddComponent<BoardSlot>();
+                {
+                    Debug.LogError("[BoardManager] Le prefab BoardSlot n'a pas de composant BoardSlot !");
+                    continue;
+                }
 
                 slot.Setup(i);
                 slotObj.SetActive(false); // Masqué par défaut, activé selon le nombre d'unités
@@ -111,7 +109,7 @@ namespace AutoBattler.Client.Board
         /// </summary>
         public Tween UpdatePlayerBoard(List<MinionState> minions, System.Func<MinionState, GameObject> getOrCreateVisual)
         {
-            return UpdateBoard(_playerSlots, _playerMinions, minions, playerBoardCenter, getOrCreateVisual);
+            return UpdateBoard(_playerSlots, _playerMinions, minions, PlayerBoardCenter, getOrCreateVisual);
         }
 
         /// <summary>
@@ -119,7 +117,7 @@ namespace AutoBattler.Client.Board
         /// </summary>
         public Tween UpdateOpponentBoard(List<MinionState> minions, System.Func<MinionState, GameObject> getOrCreateVisual)
         {
-            return UpdateBoard(_opponentSlots, _opponentMinions, minions, opponentBoardCenter, getOrCreateVisual);
+            return UpdateBoard(_opponentSlots, _opponentMinions, minions, OpponentBoardCenter, getOrCreateVisual);
         }
 
         private Tween UpdateBoard(
@@ -208,7 +206,7 @@ namespace AutoBattler.Client.Board
             if (activeCount < maxSlots)
             {
                 var nextSlot = _playerSlots[activeCount];
-                var positions = BoardLayout.CalculatePositions(activeCount + 1, playerBoardCenter, slotSpacing, arcAmount);
+                var positions = BoardLayout.CalculatePositions(activeCount + 1, PlayerBoardCenter, slotSpacing, arcAmount);
                 float dist = Vector3.Distance(worldPosition, positions[activeCount]);
                 if (dist < bestDist)
                     nearest = nextSlot;
@@ -240,7 +238,7 @@ namespace AutoBattler.Client.Board
         {
             int activeCount = _playerSlots.Count(s => s.gameObject.activeSelf);
             int count = Mathf.Min(activeCount + 1, maxSlots);
-            var positions = BoardLayout.CalculatePositions(count, playerBoardCenter, slotSpacing, arcAmount);
+            var positions = BoardLayout.CalculatePositions(count, PlayerBoardCenter, slotSpacing, arcAmount);
 
             float bestDist = float.MaxValue;
             int bestIndex = count - 1;

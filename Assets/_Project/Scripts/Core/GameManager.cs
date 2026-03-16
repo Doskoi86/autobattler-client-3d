@@ -7,6 +7,13 @@ namespace AutoBattler.Client.Core
     /// Point d'entrée principal du jeu. Gère le mode de connexion
     /// (MockServer vs RealServer) et orchestre le flux de jeu.
     /// Singleton persistant entre les scènes.
+    ///
+    /// 📋 DANS UNITY EDITOR :
+    /// 1. Créer un GameObject "GameManager" dans la Hierarchy
+    /// 2. Add Component → GameManager
+    /// 3. Si mode MockServer : Add Component → MockServerBridge sur le même GameObject
+    ///    puis glisser le composant MockServerBridge vers le champ "Mock Server Bridge"
+    /// 4. Cocher "Use Mock Server" dans l'Inspector
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -19,6 +26,10 @@ namespace AutoBattler.Client.Core
         [Header("Serveur réel (si MockServer décoché)")]
         [Tooltip("URL du serveur SignalR, ex: http://localhost:5192")]
         [SerializeField] private string serverUrl = "http://localhost:5192";
+
+        [Header("Server Bridges — assigner dans l'Inspector")]
+        [Tooltip("Référence au MockServerBridge (composant sur ce GameObject ou un autre)")]
+        [SerializeField] private MockServerBridge mockServerBridge;
 
         /// <summary>
         /// Le bridge actif (MockServer ou RealServer). Tout le jeu passe par cette référence.
@@ -43,16 +54,19 @@ namespace AutoBattler.Client.Core
         {
             if (useMockServer)
             {
-                // Le MockServerBridge est un MonoBehaviour, on l'ajoute au même GameObject
-                var mock = gameObject.AddComponent<MockServerBridge>();
-                Server = mock;
+                if (mockServerBridge == null)
+                {
+                    Debug.LogError("[GameManager] mockServerBridge non assigné ! Ajouter MockServerBridge comme composant et l'assigner dans l'Inspector.");
+                    return;
+                }
+
+                Server = mockServerBridge;
                 Debug.Log("[GameManager] Mode MockServer activé");
             }
             else
             {
-                // RealServerBridge sera implémenté en Phase 1.5 (connexion SignalR)
                 Debug.LogWarning($"[GameManager] Mode RealServer pas encore implémenté — URL : {serverUrl}");
-                // TODO: Server = gameObject.AddComponent<RealServerBridge>();
+                // TODO: Server = realServerBridge; (assigné via [SerializeField])
             }
         }
 

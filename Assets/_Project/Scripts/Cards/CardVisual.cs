@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 using TMPro;
 using DG.Tweening;
 using AutoBattler.Client.Board;
@@ -8,38 +7,88 @@ using AutoBattler.Client.Network.Protocol;
 namespace AutoBattler.Client.Cards
 {
     /// <summary>
-    /// Rendu 3D d'une carte de minion. Gère l'affichage des stats,
-    /// les interactions (hover, sélection) et implémente IDraggable
-    /// pour le drag & drop sur le board.
+    /// Rendu d'une carte de minion via SpriteRenderers empilés + TextMeshPro 3D.
+    /// Chaque couche visuelle est un SpriteRenderer enfant avec son Sorting Order.
     ///
-    /// Structure du GameObject :
-    ///   Card (root) — CardVisual + BoxCollider
-    ///     └ CardFrame — Quad (cadre de la carte)
-    ///     └ CardArt — Quad (illustration, devant le frame)
-    ///     └ AttackText — TextMeshPro 3D (bas gauche)
-    ///     └ HealthText — TextMeshPro 3D (bas droite)
-    ///     └ TierText — TextMeshPro 3D (haut centre)
-    ///     └ NameText — TextMeshPro 3D (milieu)
-    ///     └ GlowQuad — Quad derrière la carte (glow au hover)
+    /// 📋 IMPORT DES SPRITES — à faire une seule fois :
+    /// 1. Project → Assets/_Project/Sprites/Cards/ → sélectionner TOUS les sprites
+    /// 2. Inspector → Pixels Per Unit : 225
+    /// 3. Max Size : 2048, Compression : None
+    /// 4. Cliquer Apply
+    ///
+    /// 📋 CRÉER LE PREFAB Card :
+    ///
+    /// ÉTAPE A — Root
+    /// 1. Hierarchy → Create Empty → renommer "Card"
+    /// 2. Position (0, 0.1, 0), Rotation (90, 0, 0)
+    /// 3. Add Component → CardVisual
+    /// 4. Add Component → Box Collider → Size (1.2, 1.8, 0.02)
+    /// 5. Add Component → ShopCardClick → décocher (désactivé)
+    ///
+    /// ÉTAPE B — Couches de sprites (enfants de Card)
+    /// Pour chaque couche : Clic droit sur Card → Create Empty → renommer → Add Component → Sprite Renderer
+    /// Toutes les couches ont Position (0, 0, 0) sauf indication contraire.
+    /// Le Z local négatif = plus proche de la caméra (devant).
+    ///
+    ///   "Background"     — Sprite: carteFondBlanc  — Sorting Order: 0
+    ///   "Artwork"         — Sprite: (vide)          — Sorting Order: 1  — Pos (0, 0.17, 0) — Scale (0.55, 0.55, 1)
+    ///   "ArtFrame"        — Sprite: wooden_frame    — Sorting Order: 2  — Pos (0, 0.17, 0)
+    ///   "ScrollArea"      — Sprite: carteParcheminTexte — Sorting Order: 3 — Pos (0, -0.37, 0)
+    ///   "NameBanner"      — Sprite: carteParcheminNom   — Sorting Order: 4 — Pos (0, 0.02, 0)
+    ///   "Border"          — Sprite: carteTourMetal       — Sorting Order: 5
+    ///   "TavernTierBadge" — Sprite: carteRondNiveau      — Sorting Order: 6 — Pos (-0.47, 0.67, 0)  — Scale (0.6, 0.6, 1)
+    ///   "AttackBadge"     — Sprite: attack_badge         — Sorting Order: 7 — Pos (-0.50, -0.62, 0) — Scale (0.7, 0.7, 1)
+    ///   "HealthBadge"     — Sprite: health_badge         — Sorting Order: 7 — Pos (0.50, -0.64, 0)  — Scale (0.7, 0.7, 1)
+    ///   "RaceBadge"       — Sprite: cartePlaqueType      — Sorting Order: 6 — Pos (0, -0.72, 0)     — Scale (0.7, 0.7, 1)
+    ///   "GlowQuad"        — Sprite: (carré blanc ou carteFondBlanc) — Sorting Order: -1 — Scale (1.1, 1.1, 1) — Color (1,1,1,0)
+    ///
+    /// ÉTAPE C — Textes (enfants de Card)
+    /// Pour chaque texte : Clic droit sur Card → 3D Object → Text - TextMeshPro
+    ///   "AttackText"  — Pos (-0.50, -0.62, -0.01) — FontSize 4  — Color blanc — Alignment center/middle
+    ///   "HealthText"  — Pos (0.50, -0.64, -0.01)  — FontSize 4  — Color blanc
+    ///   "TierText"    — Pos (-0.47, 0.67, -0.01)  — FontSize 4  — Color blanc
+    ///   "NameText"    — Pos (0, 0.02, -0.01)       — FontSize 3  — Color blanc — Alignment center/middle
+    ///   "DescriptionText" — Pos (0, -0.37, -0.01)  — FontSize 2  — Color noir — Enable Auto Size (min 1, max 2.5)
+    ///   "RaceText"    — Pos (0, -0.72, -0.01)      — FontSize 2  — Color blanc
+    ///   Pour tous : Rect Width 1, Height 0.3 (ajuster selon besoin)
+    ///
+    /// ÉTAPE D — Assigner les références dans CardVisual Inspector
+    /// ÉTAPE E — Glisser Card → Assets/_Project/Prefabs/ pour créer le prefab
     /// </summary>
     public class CardVisual : MonoBehaviour, IDraggable
     {
-        [Header("References — auto-assignées par CardFactory")]
-        [SerializeField] private MeshRenderer cardFrame;
-        [SerializeField] private MeshRenderer glowQuad;
+        [Header("Sprite References — assignées dans le Prefab Inspector")]
+        [SerializeField] private SpriteRenderer backgroundRenderer;
+        [SerializeField] private SpriteRenderer borderRenderer;
+        [SerializeField] private SpriteRenderer artFrameRenderer;
+        [SerializeField] private SpriteRenderer artworkRenderer;
+        [SerializeField] private SpriteRenderer glowRenderer;
+
+        [Header("Text References")]
         [SerializeField] private TextMeshPro attackText;
         [SerializeField] private TextMeshPro healthText;
         [SerializeField] private TextMeshPro tierText;
         [SerializeField] private TextMeshPro nameText;
+        [SerializeField] private TextMeshPro descriptionText;
+        [SerializeField] private TextMeshPro raceText;
+
+        [Header("Tribe Backgrounds — associe une race à un fond de carte")]
+        [Tooltip("Chaque entrée associe un nom de race (ex: 'Beast') à un sprite de fond")]
+        [SerializeField] private TribeBackground[] tribeBackgrounds;
+        [SerializeField] private Sprite defaultBackground;
+
+        [Header("Frame Sprites")]
+        [SerializeField] private Sprite normalFrame;
+        [SerializeField] private Sprite goldenFrame;
 
         [Header("Hover Settings")]
         [SerializeField] private float hoverScale = 1.2f;
         [SerializeField] private float hoverLift = 0.5f;
         [SerializeField] private float hoverDuration = 0.15f;
 
-        [Header("Colors")]
+        [Header("Glow Colors")]
         [SerializeField] private Color normalGlowColor = new Color(1f, 1f, 1f, 0f);
-        [SerializeField] private Color hoverGlowColor = new Color(1f, 1f, 1f, 0.5f);
+        [SerializeField] private Color hoverGlowColor = new Color(0.8f, 0.9f, 1f, 0.4f);
         [SerializeField] private Color goldenGlowColor = new Color(1f, 0.85f, 0.2f, 0.6f);
 
         // État
@@ -48,32 +97,26 @@ namespace AutoBattler.Client.Cards
         private Vector3 _baseScale;
         private bool _isHovered;
         private bool _isDragging;
-        private Material _glowMaterial;
-        private Material _frameMaterial;
         private Camera _mainCamera;
 
+        // MaterialPropertyBlock pour les variations per-instance
+        private MaterialPropertyBlock _glowMPB;
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+
         // IDraggable
-        /// <summary>Si false, la carte ne peut pas être draggée (ex: cartes du shop)</summary>
         public bool DragEnabled { get; set; } = true;
         public bool CanDrag => DragEnabled && !_isDragging;
         public string MinionInstanceId => _data?.InstanceId;
-
-        /// <summary>Données du minion affichées par cette carte</summary>
         public MinionState Data => _data;
 
         private void Awake()
         {
             _mainCamera = Camera.main;
             _baseScale = transform.localScale;
+            _glowMPB = new MaterialPropertyBlock();
 
-            if (glowQuad != null)
-            {
-                _glowMaterial = glowQuad.material;
-                _glowMaterial.color = normalGlowColor;
-            }
-
-            if (cardFrame != null)
-                _frameMaterial = cardFrame.material;
+            if (glowRenderer != null)
+                SetSpriteColor(glowRenderer, _glowMPB, normalGlowColor);
         }
 
         // =====================================================
@@ -87,18 +130,32 @@ namespace AutoBattler.Client.Cards
         {
             _data = data;
 
+            // Textes
             if (attackText != null) attackText.text = data.Attack.ToString();
             if (healthText != null) healthText.text = data.Health.ToString();
-            if (tierText != null) tierText.text = $"T{data.Tier}";
+            if (tierText != null) tierText.text = data.Tier.ToString();
             if (nameText != null) nameText.text = data.Name;
+            if (descriptionText != null) descriptionText.text = data.Description ?? "";
+            if (raceText != null) raceText.text = data.Tribes ?? "";
 
-            // Couleur du cadre selon le tier
-            if (_frameMaterial != null)
-                _frameMaterial.color = GetTierColor(data.Tier);
+            // Fond selon la race (swap de sprite)
+            if (backgroundRenderer != null)
+            {
+                backgroundRenderer.sprite = GetTribeBackground(data.Tribes);
+            }
+
+            // Cadre doré si golden
+            if (artFrameRenderer != null)
+            {
+                if (data.IsGolden && goldenFrame != null)
+                    artFrameRenderer.sprite = goldenFrame;
+                else if (normalFrame != null)
+                    artFrameRenderer.sprite = normalFrame;
+            }
 
             // Glow doré permanent si golden
-            if (data.IsGolden && _glowMaterial != null)
-                _glowMaterial.color = goldenGlowColor;
+            if (data.IsGolden && glowRenderer != null)
+                SetSpriteColor(glowRenderer, _glowMPB, goldenGlowColor);
         }
 
         /// <summary>
@@ -118,7 +175,6 @@ namespace AutoBattler.Client.Cards
 
         /// <summary>
         /// Enregistre la position de base (utilisée pour le retour après hover).
-        /// Appelé par BoardManager après positionnement.
         /// </summary>
         public void SetBasePosition(Vector3 position)
         {
@@ -153,8 +209,8 @@ namespace AutoBattler.Client.Cards
                     .Append(transform.DOScale(_baseScale * hoverScale, hoverDuration).SetEase(Ease.OutBack))
                     .Join(transform.DOLocalMoveY(_basePosition.y + hoverLift, hoverDuration).SetEase(Ease.OutQuad));
 
-                if (_glowMaterial != null && (_data == null || !_data.IsGolden))
-                    _glowMaterial.DOColor(hoverGlowColor, hoverDuration);
+                if (glowRenderer != null && (_data == null || !_data.IsGolden))
+                    AnimateSpriteColor(glowRenderer, _glowMPB, hoverGlowColor, hoverDuration);
 
                 return seq;
             }
@@ -164,8 +220,8 @@ namespace AutoBattler.Client.Cards
                     .Append(transform.DOScale(_baseScale, hoverDuration).SetEase(Ease.OutQuad))
                     .Join(transform.DOLocalMoveY(_basePosition.y, hoverDuration).SetEase(Ease.OutQuad));
 
-                if (_glowMaterial != null && (_data == null || !_data.IsGolden))
-                    _glowMaterial.DOColor(normalGlowColor, hoverDuration);
+                if (glowRenderer != null && (_data == null || !_data.IsGolden))
+                    AnimateSpriteColor(glowRenderer, _glowMPB, normalGlowColor, hoverDuration);
 
                 return seq;
             }
@@ -175,7 +231,6 @@ namespace AutoBattler.Client.Cards
         // ANIMATIONS DE JEU
         // =====================================================
 
-        /// <summary>Animation d'achat : la carte vole depuis une position source</summary>
         public Tween AnimateBuy(Vector3 fromPosition)
         {
             transform.position = fromPosition;
@@ -186,7 +241,6 @@ namespace AutoBattler.Client.Cards
                 .Join(transform.DOScale(_baseScale, 0.3f).SetEase(Ease.OutBack));
         }
 
-        /// <summary>Animation de pose sur le board : petit rebond</summary>
         public Tween AnimatePlace(Vector3 targetPosition)
         {
             return DOTween.Sequence()
@@ -195,7 +249,6 @@ namespace AutoBattler.Client.Cards
                 .Append(transform.DOPunchScale(Vector3.one * 0.1f, 0.2f));
         }
 
-        /// <summary>Animation de dégâts : tremblement + flash rouge</summary>
         public Tween AnimateDamage(int newHealth)
         {
             return DOTween.Sequence()
@@ -210,7 +263,6 @@ namespace AutoBattler.Client.Cards
                 .Append(healthText.DOColor(Color.white, 0.15f));
         }
 
-        /// <summary>Animation de mort : rétrécissement + rotation + fade</summary>
         public Tween AnimateDeath()
         {
             return DOTween.Sequence()
@@ -219,7 +271,6 @@ namespace AutoBattler.Client.Cards
                 .OnComplete(() => gameObject.SetActive(false));
         }
 
-        /// <summary>Animation d'attaque : avancer vers la cible puis revenir</summary>
         public Tween AnimateAttack(Vector3 targetPosition)
         {
             var startPos = transform.position;
@@ -230,7 +281,6 @@ namespace AutoBattler.Client.Cards
                 .Append(transform.DOMove(startPos, 0.2f).SetEase(Ease.OutQuad));
         }
 
-        /// <summary>Animation de buff : particules vertes + stats qui pulsent</summary>
         public Tween AnimateBuff(int newAttack, int newHealth)
         {
             return DOTween.Sequence()
@@ -245,27 +295,70 @@ namespace AutoBattler.Client.Cards
         }
 
         // =====================================================
-        // UTILITAIRES
+        // MATERIALPROPERTYBLOCK (pour SpriteRenderer)
         // =====================================================
 
-        /// <summary>Couleur du cadre selon le tier</summary>
-        private Color GetTierColor(int tier)
+        private void SetSpriteColor(SpriteRenderer sr, MaterialPropertyBlock mpb, Color color)
         {
-            switch (tier)
+            sr.GetPropertyBlock(mpb);
+            mpb.SetColor(ColorId, color);
+            sr.SetPropertyBlock(mpb);
+        }
+
+        private void AnimateSpriteColor(SpriteRenderer sr, MaterialPropertyBlock mpb, Color targetColor, float duration)
+        {
+            sr.GetPropertyBlock(mpb);
+            Color currentColor = mpb.GetColor(ColorId);
+            if (currentColor.a == 0 && targetColor.a == 0) return;
+
+            DOTween.To(
+                () => currentColor,
+                x =>
+                {
+                    currentColor = x;
+                    sr.GetPropertyBlock(mpb);
+                    mpb.SetColor(ColorId, x);
+                    sr.SetPropertyBlock(mpb);
+                },
+                targetColor,
+                duration
+            );
+        }
+
+        // =====================================================
+        // TRIBE BACKGROUNDS
+        // =====================================================
+
+        private Sprite GetTribeBackground(string tribes)
+        {
+            if (string.IsNullOrEmpty(tribes) || tribeBackgrounds == null)
+                return defaultBackground;
+
+            foreach (var tb in tribeBackgrounds)
             {
-                case 1: return new Color(0.6f, 0.6f, 0.6f);   // Gris
-                case 2: return new Color(0.2f, 0.7f, 0.3f);   // Vert
-                case 3: return new Color(0.2f, 0.4f, 0.9f);   // Bleu
-                case 4: return new Color(0.6f, 0.2f, 0.8f);   // Violet
-                case 5: return new Color(0.9f, 0.6f, 0.1f);   // Orange
-                case 6: return new Color(0.9f, 0.2f, 0.2f);   // Rouge
-                default: return Color.white;
+                if (tribes.Contains(tb.tribeName))
+                    return tb.backgroundSprite;
             }
+
+            return defaultBackground;
         }
 
         private void OnDestroy()
         {
             transform.DOKill();
         }
+    }
+
+    /// <summary>
+    /// Associe un nom de race à un sprite de fond de carte.
+    /// Configurable dans l'Inspector — pas besoin de recompiler pour ajouter une race.
+    /// </summary>
+    [System.Serializable]
+    public class TribeBackground
+    {
+        [Tooltip("Nom de la race tel qu'envoyé par le serveur (ex: Beast, Dragon, Demon...)")]
+        public string tribeName;
+        [Tooltip("Sprite de fond correspondant (ex: carteFondVert pour Beast)")]
+        public Sprite backgroundSprite;
     }
 }

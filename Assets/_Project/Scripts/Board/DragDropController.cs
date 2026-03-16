@@ -199,7 +199,7 @@ namespace AutoBattler.Client.Board
                     .Join(target.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack))
                     .OnComplete(() =>
                     {
-                        if (target != null) Destroy(target.gameObject);
+                        if (target != null) target.gameObject.SetActive(false);
                     });
             }
             else

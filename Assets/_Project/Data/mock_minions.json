@@ -1,0 +1,35 @@
+{
+  "minions": [
+    { "name": "Recrue Humaine",     "attack": 1, "health": 2, "tier": 1, "keywords": "", "tribe": "Human",  "description": "" },
+    { "name": "Louveteau",          "attack": 2, "health": 1, "tier": 1, "keywords": "", "tribe": "Beast",  "description": "" },
+    { "name": "Méca-Assembleur",    "attack": 1, "health": 3, "tier": 1, "keywords": "", "tribe": "Mech",   "description": "" },
+    { "name": "Diablotin",          "attack": 2, "health": 2, "tier": 1, "keywords": "", "tribe": "Demon",  "description": "Battlecry : Votre héros perd 1 PV." },
+    { "name": "Dragonnet",          "attack": 1, "health": 2, "tier": 1, "keywords": "", "tribe": "Dragon", "description": "" },
+    { "name": "Elfe Archer",        "attack": 2, "health": 1, "tier": 1, "keywords": "", "tribe": "Elf",    "description": "" },
+
+    { "name": "Garde Taurène",      "attack": 2, "health": 4, "tier": 2, "keywords": "Taunt", "tribe": "Tauren", "description": "Taunt." },
+    { "name": "Loup Alpha",         "attack": 3, "health": 2, "tier": 2, "keywords": "",      "tribe": "Beast",  "description": "Deathrattle : Invoque un 1/1." },
+    { "name": "Méca-Blindé",        "attack": 2, "health": 3, "tier": 2, "keywords": "DivineShield", "tribe": "Mech", "description": "Bouclier divin." },
+    { "name": "Nécro-Servant",      "attack": 3, "health": 3, "tier": 2, "keywords": "",      "tribe": "Undead", "description": "" },
+    { "name": "Fée Soigneuse",      "attack": 1, "health": 3, "tier": 2, "keywords": "",      "tribe": "Fairy",  "description": "Battlecry : Donne +1/+1 à un allié." },
+
+    { "name": "Champion Orc",       "attack": 4, "health": 4, "tier": 3, "keywords": "",      "tribe": "Orc",    "description": "" },
+    { "name": "Dragon de Bronze",   "attack": 3, "health": 5, "tier": 3, "keywords": "",      "tribe": "Dragon", "description": "Battlecry : +2/+2 si vous avez un Dragon." },
+    { "name": "Golem de Fer",       "attack": 3, "health": 6, "tier": 3, "keywords": "Taunt", "tribe": "Mech",   "description": "Taunt." },
+    { "name": "Démon Vorace",       "attack": 5, "health": 3, "tier": 3, "keywords": "",      "tribe": "Demon",  "description": "Battlecry : Héros perd 2 PV. Gagne +3/+3." },
+    { "name": "Esprit Sylvestre",   "attack": 2, "health": 4, "tier": 3, "keywords": "",      "tribe": "Elf",    "description": "Deathrattle : Donne +2/+2 à un allié." },
+
+    { "name": "Seigneur de Guerre", "attack": 5, "health": 5, "tier": 4, "keywords": "",       "tribe": "Orc",    "description": "" },
+    { "name": "Hydre Sauvage",      "attack": 4, "health": 4, "tier": 4, "keywords": "Cleave", "tribe": "Beast",  "description": "Cleave." },
+    { "name": "Mécageant",          "attack": 3, "health": 8, "tier": 4, "keywords": "Taunt",  "tribe": "Mech",   "description": "Taunt." },
+    { "name": "Liche Mineure",      "attack": 4, "health": 5, "tier": 4, "keywords": "Reborn", "tribe": "Undead", "description": "Reborn." },
+
+    { "name": "Roi Dragon",         "attack": 6, "health": 6, "tier": 5, "keywords": "",         "tribe": "Dragon", "description": "Battlecry : +3/+3 à tous les Dragons." },
+    { "name": "Berserker Orc",      "attack": 8, "health": 4, "tier": 5, "keywords": "Windfury", "tribe": "Orc",    "description": "Windfury." },
+    { "name": "Archi-Fée",          "attack": 4, "health": 7, "tier": 5, "keywords": "",         "tribe": "Fairy",  "description": "Fin de tour : +1/+1 à tous les alliés." },
+
+    { "name": "Aspect Draconique",  "attack": 8,  "health": 8,  "tier": 6, "keywords": "",                   "tribe": "Dragon", "description": "Tous vos Dragons ont +2/+2." },
+    { "name": "Titan Mécanique",    "attack": 6,  "health": 10, "tier": 6, "keywords": "Taunt,DivineShield", "tribe": "Mech",   "description": "Taunt. Bouclier divin." },
+    { "name": "Archidémon",         "attack": 10, "health": 6,  "tier": 6, "keywords": "",                   "tribe": "Demon",  "description": "Battlecry : Héros perd 5 PV." }
+  ]
+}

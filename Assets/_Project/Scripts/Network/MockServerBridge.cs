@@ -21,6 +21,10 @@ namespace AutoBattler.Client.Network
         [SerializeField] private int startingGold = 3;
         [SerializeField] private int maxGold = 10;
 
+        [Header("Data")]
+        [Tooltip("JSON contenant les templates de minions (Assets/_Project/Data/mock_minions.json)")]
+        [SerializeField] private TextAsset minionDataJson;
+
         // --- État interne ---
         private string _playerId;
         private string _gameId;
@@ -606,47 +610,43 @@ namespace AutoBattler.Client.Network
 
         private void InitMinionPool()
         {
-            // Pool simplifié de minions pour le mock (un par tier par race)
-            _minionPool = new List<MinionTemplate>
+            if (minionDataJson == null)
             {
-                // Tier 1
-                new MinionTemplate("Recrue Humaine",    1, 2, 1, "", "Human",  ""),
-                new MinionTemplate("Louveteau",         2, 1, 1, "", "Beast",  ""),
-                new MinionTemplate("Méca-Assembleur",   1, 3, 1, "", "Mech",   ""),
-                new MinionTemplate("Diablotin",         2, 2, 1, "", "Demon",  "Battlecry : Votre héros perd 1 PV."),
-                new MinionTemplate("Dragonnet",         1, 2, 1, "", "Dragon", ""),
-                new MinionTemplate("Elfe Archer",       2, 1, 1, "", "Elf",    ""),
+                Debug.LogError("[MockServer] minionDataJson non assigné ! Glisser mock_minions.json depuis Assets/_Project/Data/ dans l'Inspector.");
+                return;
+            }
 
-                // Tier 2
-                new MinionTemplate("Garde Taurène",     2, 4, 2, "Taunt", "Tauren", "Taunt."),
-                new MinionTemplate("Loup Alpha",        3, 2, 2, "", "Beast",  "Deathrattle : Invoque un 1/1."),
-                new MinionTemplate("Méca-Blindé",       2, 3, 2, "DivineShield", "Mech", "Bouclier divin."),
-                new MinionTemplate("Nécro-Servant",     3, 3, 2, "", "Undead", ""),
-                new MinionTemplate("Fée Soigneuse",     1, 3, 2, "", "Fairy",  "Battlecry : Donne +1/+1 à un allié."),
+            var data = JsonUtility.FromJson<MinionTemplateList>(minionDataJson.text);
+            _minionPool = new List<MinionTemplate>();
 
-                // Tier 3
-                new MinionTemplate("Champion Orc",      4, 4, 3, "", "Orc",    ""),
-                new MinionTemplate("Dragon de Bronze",  3, 5, 3, "", "Dragon", "Battlecry : +2/+2 si vous avez un Dragon."),
-                new MinionTemplate("Golem de Fer",      3, 6, 3, "Taunt", "Mech", "Taunt."),
-                new MinionTemplate("Démon Vorace",      5, 3, 3, "", "Demon",  "Battlecry : Héros perd 2 PV. Gagne +3/+3."),
-                new MinionTemplate("Esprit Sylvestre",  2, 4, 3, "", "Elf",    "Deathrattle : Donne +2/+2 à un allié."),
+            foreach (var entry in data.minions)
+            {
+                _minionPool.Add(new MinionTemplate(
+                    entry.name, entry.attack, entry.health, entry.tier,
+                    entry.keywords, entry.tribe, entry.description
+                ));
+            }
 
-                // Tier 4
-                new MinionTemplate("Seigneur de Guerre", 5, 5, 4, "", "Orc",    ""),
-                new MinionTemplate("Hydre Sauvage",     4, 4, 4, "Cleave", "Beast", "Cleave."),
-                new MinionTemplate("Mécageant",         3, 8, 4, "Taunt", "Mech",  "Taunt."),
-                new MinionTemplate("Liche Mineure",     4, 5, 4, "Reborn", "Undead", "Reborn."),
+            Debug.Log($"[MockServer] {_minionPool.Count} minions chargés depuis JSON");
+        }
 
-                // Tier 5
-                new MinionTemplate("Roi Dragon",        6, 6, 5, "", "Dragon", "Battlecry : +3/+3 à tous les Dragons."),
-                new MinionTemplate("Berserker Orc",     8, 4, 5, "Windfury", "Orc", "Windfury."),
-                new MinionTemplate("Archi-Fée",         4, 7, 5, "", "Fairy",  "Fin de tour : +1/+1 à tous les alliés."),
+        /// <summary>Wrapper pour la désérialisation JSON du pool de minions</summary>
+        [System.Serializable]
+        private class MinionTemplateList
+        {
+            public MinionJsonEntry[] minions;
+        }
 
-                // Tier 6
-                new MinionTemplate("Aspect Draconique", 8, 8, 6, "", "Dragon", "Tous vos Dragons ont +2/+2."),
-                new MinionTemplate("Titan Mécanique",   6, 10, 6, "Taunt,DivineShield", "Mech", "Taunt. Bouclier divin."),
-                new MinionTemplate("Archidémon",        10, 6, 6, "", "Demon", "Battlecry : Héros perd 5 PV."),
-            };
+        [System.Serializable]
+        private class MinionJsonEntry
+        {
+            public string name;
+            public int attack;
+            public int health;
+            public int tier;
+            public string keywords;
+            public string tribe;
+            public string description;
         }
 
         private void InitOpponents()
