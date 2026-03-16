@@ -28,12 +28,19 @@ namespace AutoBattler.Client.Shop
         public static ShopManager Instance { get; private set; }
 
         [Header("Shop Layout")]
-        [Tooltip("Espacement entre les tokens du shop (adapté aux tokens compacts ~1.2u)")]
-        [SerializeField] private float shopSpacing = 2.0f;
+        [Tooltip("Espacement entre les tokens du shop")]
+        [SerializeField] private float shopSpacing = 2.5f;
+
+        [Header("Gameplay")]
+        [SerializeField] private int buyCost = 3;
+        [SerializeField] private int rerollCost = 1;
 
         [Header("Animation")]
         [SerializeField] private float sellAnimDuration = 0.25f;
         [SerializeField] private float rerollAnimDuration = 0.3f;
+        [SerializeField] private float shopStaggerDelay = 0.08f;
+        [SerializeField] private float freezePunchScale = 0.05f;
+        [SerializeField] private float freezePunchDuration = 0.2f;
 
         // Tokens actuellement dans le shop
         private List<MinionTokenVisual> _shopTokens = new List<MinionTokenVisual>();
@@ -100,7 +107,7 @@ namespace AutoBattler.Client.Shop
             get
             {
                 var surface = BoardSurface.Instance;
-                return surface != null ? surface.GetShopCenter() : new Vector3(0.9f, 0.01f, 5.41f);
+                return surface != null ? surface.GetShopCenter() : Vector3.zero;
             }
         }
 
@@ -110,7 +117,7 @@ namespace AutoBattler.Client.Shop
 
         public bool BuyCard(int shopIndex)
         {
-            if (_currentGold < 3)
+            if (_currentGold < buyCost)
             {
                 Debug.Log("[Shop] Pas assez d'or !");
                 return false;
@@ -126,7 +133,7 @@ namespace AutoBattler.Client.Shop
 
         public void Reroll()
         {
-            if (_currentGold < 1)
+            if (_currentGold < rerollCost)
             {
                 Debug.Log("[Shop] Pas assez d'or pour reroll !");
                 return;
@@ -218,7 +225,7 @@ namespace AutoBattler.Client.Shop
                 if (token == null) continue;
                 token.SetFrozen(_isFrozen);
                 if (_isFrozen)
-                    token.transform.DOPunchScale(Vector3.one * 0.05f, 0.2f);
+                    token.transform.DOPunchScale(Vector3.one * freezePunchScale, freezePunchDuration);
             }
 
             Debug.Log($"[Shop] Shop {(_isFrozen ? "gelé" : "dégelé")}");
@@ -290,9 +297,9 @@ namespace AutoBattler.Client.Shop
                 token.transform.position = targetPos + Vector3.up * 2f;
                 token.transform.localScale = Vector3.zero;
                 token.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad)
-                    .SetDelay(i * 0.08f);
+                    .SetDelay(i * shopStaggerDelay);
                 token.transform.DOScale(baseScale, rerollAnimDuration).SetEase(Ease.OutBack)
-                    .SetDelay(i * 0.08f);
+                    .SetDelay(i * shopStaggerDelay);
 
                 token.SetBasePosition(targetPos);
 

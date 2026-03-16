@@ -32,6 +32,11 @@ namespace AutoBattler.Client.UI.HUD
         [SerializeField] private TextMeshProUGUI freezeButtonText;
         [SerializeField] private TextMeshProUGUI upgradeButtonText;
 
+        [Header("Animation")]
+        [SerializeField] private float goldPunchScale = 0.2f;
+        [SerializeField] private float goldPunchDuration = 0.2f;
+        [SerializeField] private int urgencyThresholdSeconds = 10;
+
         // Timer
         private float _timerRemaining;
         private bool _timerActive;
@@ -92,7 +97,7 @@ namespace AutoBattler.Client.UI.HUD
 
             // Animation punch sur changement
             goldText.transform.DOKill();
-            goldText.transform.DOPunchScale(Vector3.one * 0.2f, 0.2f).SetEase(Ease.OutElastic);
+            goldText.transform.DOPunchScale(Vector3.one * goldPunchScale, goldPunchDuration).SetEase(Ease.OutElastic);
         }
 
         private void UpdateTier(int tier, int upgradeCost)
@@ -146,7 +151,7 @@ namespace AutoBattler.Client.UI.HUD
             timerText.text = $"{seconds}s";
 
             // Urgence visuelle quand < 10s
-            if (seconds <= 10 && seconds > 0)
+            if (seconds <= urgencyThresholdSeconds && seconds > 0)
                 timerText.color = Color.red;
             else
                 timerText.color = Color.white;

@@ -91,6 +91,21 @@ namespace AutoBattler.Client.Cards
         [SerializeField] private Color hoverGlowColor = new Color(0.8f, 0.9f, 1f, 0.4f);
         [SerializeField] private Color goldenGlowColor = new Color(1f, 0.85f, 0.2f, 0.6f);
 
+        [Header("Animation Durations")]
+        [SerializeField] private float buyMoveDuration = 0.4f;
+        [SerializeField] private float buyScaleDuration = 0.3f;
+        [SerializeField] private float placeDuration = 0.3f;
+        [SerializeField] private float placePunchScale = 0.1f;
+        [SerializeField] private float placePunchDuration = 0.2f;
+        [SerializeField] private float damageDuration = 0.2f;
+        [SerializeField] private float damageShakeIntensity = 0.1f;
+        [SerializeField] private float deathDuration = 0.3f;
+        [SerializeField] private float deathRotation = 15f;
+        [SerializeField] private float attackForwardDuration = 0.15f;
+        [SerializeField] private float attackReturnDuration = 0.2f;
+        [SerializeField] private float buffPunchScale = 0.4f;
+        [SerializeField] private float buffPunchDuration = 0.25f;
+
         // État
         private MinionState _data;
         private Vector3 _basePosition;
@@ -237,37 +252,37 @@ namespace AutoBattler.Client.Cards
             transform.localScale = Vector3.zero;
 
             return DOTween.Sequence()
-                .Append(transform.DOMove(_basePosition, 0.4f).SetEase(Ease.OutQuad))
-                .Join(transform.DOScale(_baseScale, 0.3f).SetEase(Ease.OutBack));
+                .Append(transform.DOMove(_basePosition, buyMoveDuration).SetEase(Ease.OutQuad))
+                .Join(transform.DOScale(_baseScale, buyScaleDuration).SetEase(Ease.OutBack));
         }
 
         public Tween AnimatePlace(Vector3 targetPosition)
         {
             return DOTween.Sequence()
-                .Append(transform.DOMove(targetPosition, 0.3f).SetEase(Ease.OutQuad))
-                .Join(transform.DOScale(_baseScale, 0.3f))
-                .Append(transform.DOPunchScale(Vector3.one * 0.1f, 0.2f));
+                .Append(transform.DOMove(targetPosition, placeDuration).SetEase(Ease.OutQuad))
+                .Join(transform.DOScale(_baseScale, placeDuration))
+                .Append(transform.DOPunchScale(Vector3.one * placePunchScale, placePunchDuration));
         }
 
         public Tween AnimateDamage(int newHealth)
         {
             return DOTween.Sequence()
-                .Append(transform.DOShakePosition(0.2f, 0.1f, 20))
-                .Join(healthText.DOColor(Color.red, 0.1f))
+                .Append(transform.DOShakePosition(damageDuration, damageShakeIntensity, 20))
+                .Join(healthText.DOColor(Color.red, damageDuration * 0.5f))
                 .AppendCallback(() =>
                 {
                     healthText.text = newHealth.ToString();
                     if (_data != null) _data.Health = newHealth;
                 })
-                .Append(healthText.transform.DOPunchScale(Vector3.one * 0.3f, 0.2f))
-                .Append(healthText.DOColor(Color.white, 0.15f));
+                .Append(healthText.transform.DOPunchScale(Vector3.one * 0.3f, damageDuration))
+                .Append(healthText.DOColor(Color.white, damageDuration * 0.75f));
         }
 
         public Tween AnimateDeath()
         {
             return DOTween.Sequence()
-                .Append(transform.DOScale(0f, 0.3f).SetEase(Ease.InBack))
-                .Join(transform.DORotate(new Vector3(0f, 0f, 15f), 0.3f))
+                .Append(transform.DOScale(0f, deathDuration).SetEase(Ease.InBack))
+                .Join(transform.DORotate(new Vector3(0f, 0f, deathRotation), deathDuration))
                 .OnComplete(() => gameObject.SetActive(false));
         }
 
@@ -276,9 +291,9 @@ namespace AutoBattler.Client.Cards
             var startPos = transform.position;
 
             return DOTween.Sequence()
-                .Append(transform.DOMove(targetPosition, 0.15f).SetEase(Ease.InQuad))
+                .Append(transform.DOMove(targetPosition, attackForwardDuration).SetEase(Ease.InQuad))
                 .AppendInterval(0.05f)
-                .Append(transform.DOMove(startPos, 0.2f).SetEase(Ease.OutQuad));
+                .Append(transform.DOMove(startPos, attackReturnDuration).SetEase(Ease.OutQuad));
         }
 
         public Tween AnimateBuff(int newAttack, int newHealth)
@@ -290,8 +305,8 @@ namespace AutoBattler.Client.Cards
                     if (healthText != null) healthText.text = newHealth.ToString();
                     if (_data != null) { _data.Attack = newAttack; _data.Health = newHealth; }
                 })
-                .Append(attackText.transform.DOPunchScale(Vector3.one * 0.4f, 0.25f).SetEase(Ease.OutElastic))
-                .Join(healthText.transform.DOPunchScale(Vector3.one * 0.4f, 0.25f).SetEase(Ease.OutElastic));
+                .Append(attackText.transform.DOPunchScale(Vector3.one * buffPunchScale, buffPunchDuration).SetEase(Ease.OutElastic))
+                .Join(healthText.transform.DOPunchScale(Vector3.one * buffPunchScale, buffPunchDuration).SetEase(Ease.OutElastic));
         }
 
         // =====================================================

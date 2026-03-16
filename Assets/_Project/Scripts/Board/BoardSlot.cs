@@ -23,9 +23,10 @@ namespace AutoBattler.Client.Board
         [Header("Visual")]
         [SerializeField] private MeshRenderer highlightRenderer;
 
+        [SerializeField] private Color validColor = new Color(0f, 1f, 0.3f, 0.4f);
+        [SerializeField] private Color invalidColor = new Color(1f, 0.2f, 0.2f, 0.4f);
+
         private Color _defaultColor;
-        private Color _validColor = new Color(0f, 1f, 0.3f, 0.4f);    // Vert transparent
-        private Color _invalidColor = new Color(1f, 0.2f, 0.2f, 0.4f); // Rouge transparent
 
         private MaterialPropertyBlock _mpb;
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -86,7 +87,7 @@ namespace AutoBattler.Client.Board
         {
             if (highlightRenderer == null) return;
             highlightRenderer.enabled = true;
-            SetHighlightColor(isValid ? _validColor : _invalidColor);
+            SetHighlightColor(isValid ? validColor : invalidColor);
         }
 
         /// <summary>

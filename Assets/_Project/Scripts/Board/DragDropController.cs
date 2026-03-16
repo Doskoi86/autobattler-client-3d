@@ -49,6 +49,10 @@ namespace AutoBattler.Client.Board
         [SerializeField] private float pickupDuration = 0.15f;
         [SerializeField] private float dropDuration = 0.2f;
         [SerializeField] private float returnDuration = 0.3f;
+        [SerializeField] private float buyAnimDuration = 0.3f;
+        [SerializeField] private float buyAnimLift = 0.5f;
+        [SerializeField] private float sellAnimDuration = 0.25f;
+        [SerializeField] private float dragLiftOffset = 0.15f;
 
         private enum DragSource { None, Shop, Hand, Board }
 
@@ -66,6 +70,7 @@ namespace AutoBattler.Client.Board
         private int _dragShopIndex;
         private Plane _dragPlane;
         private Dictionary<SpriteRenderer, int> _savedSortingOrders = new Dictionary<SpriteRenderer, int>();
+        private const float UnityPlaneSize = 10f;
 
         /// <summary>
         /// Seuil Z d'achat calculé depuis le bord haut de la drop zone board.
@@ -78,7 +83,7 @@ namespace AutoBattler.Client.Board
             {
                 if (dropZoneBoard == null) return shopBuyThresholdZFallback;
                 var t = dropZoneBoard.transform;
-                float halfDepth = 10f * t.lossyScale.z / 2f;
+                float halfDepth = UnityPlaneSize * t.lossyScale.z / 2f;
                 return t.position.z + halfDepth;
             }
         }
@@ -95,7 +100,7 @@ namespace AutoBattler.Client.Board
                 // Un Plane Unity fait 10 unités de base. Scale Z = profondeur / 10.
                 // Le bord bas = position.z - (10 * scaleZ / 2)
                 var t = dropZoneSell.transform;
-                float halfDepth = 10f * t.lossyScale.z / 2f;
+                float halfDepth = UnityPlaneSize * t.lossyScale.z / 2f;
                 return t.position.z - halfDepth;
             }
         }
@@ -192,7 +197,7 @@ namespace AutoBattler.Client.Board
                 var worldPos = ray.GetPoint(distance);
                 _draggedObject.position = new Vector3(
                     worldPos.x,
-                    dragPlaneHeight + 0.15f,
+                    dragPlaneHeight + dragLiftOffset,
                     worldPos.z
                 );
             }
@@ -247,12 +252,12 @@ namespace AutoBattler.Client.Board
                 var target = _draggedObject;
                 var handCenter = BoardSurface.Instance != null
                     ? BoardSurface.Instance.GetHandCenter(false)
-                    : new Vector3(0f, 0.5f, -2.78f);
+                    : Vector3.zero;
 
                 target.DOKill();
                 DOTween.Sequence()
-                    .Append(target.DOMove(handCenter + Vector3.up * 0.5f, 0.3f).SetEase(Ease.InQuad))
-                    .Join(target.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack))
+                    .Append(target.DOMove(handCenter + Vector3.up * buyAnimLift, buyAnimDuration).SetEase(Ease.InQuad))
+                    .Join(target.DOScale(Vector3.zero, buyAnimDuration).SetEase(Ease.InBack))
                     .OnComplete(() =>
                     {
                         if (target != null) target.gameObject.SetActive(false);
@@ -333,7 +338,7 @@ namespace AutoBattler.Client.Board
                 RestoreSortingOrder(target);
                 target.DOKill();
                 DOTween.Sequence()
-                    .Append(target.DOScale(Vector3.zero, 0.25f).SetEase(Ease.InBack))
+                    .Append(target.DOScale(Vector3.zero, sellAnimDuration).SetEase(Ease.InBack))
                     .OnComplete(() =>
                     {
                         if (target != null) target.gameObject.SetActive(false);

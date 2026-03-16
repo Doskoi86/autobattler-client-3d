@@ -31,6 +31,7 @@ namespace AutoBattler.Client.Board
         [Header("Animation")]
         [SerializeField] private float repositionDuration = 0.3f;
         [SerializeField] private Ease repositionEase = Ease.OutQuad;
+        [SerializeField] private float spawnStaggerDelay = 0.05f;
 
         // Accesseurs pour le DragDropController
         public float SlotSpacing => slotSpacing;
@@ -130,7 +131,7 @@ namespace AutoBattler.Client.Board
 
                     token.transform.position = targetPos;
                     token.SetBasePosition(targetPos);
-                    token.AnimateSpawn(i * 0.05f);
+                    token.AnimateSpawn(i * spawnStaggerDelay);
 
                     _playerTokens[minionState.InstanceId] = token;
                 }

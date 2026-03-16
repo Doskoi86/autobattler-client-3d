@@ -82,6 +82,18 @@ namespace AutoBattler.Client.Cards
         [SerializeField] private Color hoverGlowColor = new Color(0.4f, 1f, 0.6f, 0.5f);
         [SerializeField] private Color goldenGlowColor = new Color(1f, 0.85f, 0.2f, 0.6f);
 
+        [Header("Animation Durations")]
+        [SerializeField] private float spawnDuration = 0.3f;
+        [SerializeField] private float deathDuration = 0.3f;
+        [SerializeField] private float damageDuration = 0.2f;
+        [SerializeField] private float damageShakeIntensity = 0.08f;
+        [SerializeField] private float attackScaleUp = 1.15f;
+        [SerializeField] private float attackScaleDuration = 0.1f;
+        [SerializeField] private float attackForwardDuration = 0.15f;
+        [SerializeField] private float attackReturnDuration = 0.2f;
+        [SerializeField] private float buffPunchScale = 0.4f;
+        [SerializeField] private float buffPunchDuration = 0.25f;
+
         // État
         private MinionState _data;
         private Vector3 _basePosition;
@@ -258,41 +270,41 @@ namespace AutoBattler.Client.Cards
             transform.localScale = Vector3.zero;
             return DOTween.Sequence()
                 .AppendInterval(delay)
-                .Append(transform.DOScale(_baseScale, 0.3f).SetEase(Ease.OutBack));
+                .Append(transform.DOScale(_baseScale, spawnDuration).SetEase(Ease.OutBack));
         }
 
         public Tween AnimateDeath()
         {
             return DOTween.Sequence()
-                .Append(transform.DOScale(0f, 0.3f).SetEase(Ease.InBack))
+                .Append(transform.DOScale(0f, deathDuration).SetEase(Ease.InBack))
                 .OnComplete(() => gameObject.SetActive(false));
         }
 
         public Tween AnimateDamage(int newHealth)
         {
             return DOTween.Sequence()
-                .Append(transform.DOShakePosition(0.2f, 0.08f, 20))
+                .Append(transform.DOShakePosition(damageDuration, damageShakeIntensity, 20))
                 .AppendCallback(() => UpdateStats(_data?.Attack ?? 0, newHealth))
-                .Append(healthText.transform.DOPunchScale(Vector3.one * 0.3f, 0.2f).SetEase(Ease.OutElastic));
+                .Append(healthText.transform.DOPunchScale(Vector3.one * 0.3f, damageDuration).SetEase(Ease.OutElastic));
         }
 
         public Tween AnimateAttack(Vector3 targetPosition)
         {
             var startPos = transform.position;
             return DOTween.Sequence()
-                .Append(transform.DOScale(_baseScale * 1.15f, 0.1f).SetEase(Ease.OutBack))
-                .Append(transform.DOMove(targetPosition, 0.15f).SetEase(Ease.InQuad))
+                .Append(transform.DOScale(_baseScale * attackScaleUp, attackScaleDuration).SetEase(Ease.OutBack))
+                .Append(transform.DOMove(targetPosition, attackForwardDuration).SetEase(Ease.InQuad))
                 .AppendInterval(0.05f)
-                .Append(transform.DOMove(startPos, 0.2f).SetEase(Ease.OutQuad))
-                .Join(transform.DOScale(_baseScale, 0.2f));
+                .Append(transform.DOMove(startPos, attackReturnDuration).SetEase(Ease.OutQuad))
+                .Join(transform.DOScale(_baseScale, attackReturnDuration));
         }
 
         public Tween AnimateBuff(int newAttack, int newHealth)
         {
             return DOTween.Sequence()
                 .AppendCallback(() => UpdateStats(newAttack, newHealth))
-                .Append(attackText.transform.DOPunchScale(Vector3.one * 0.4f, 0.25f).SetEase(Ease.OutElastic))
-                .Join(healthText.transform.DOPunchScale(Vector3.one * 0.4f, 0.25f).SetEase(Ease.OutElastic));
+                .Append(attackText.transform.DOPunchScale(Vector3.one * buffPunchScale, buffPunchDuration).SetEase(Ease.OutElastic))
+                .Join(healthText.transform.DOPunchScale(Vector3.one * buffPunchScale, buffPunchDuration).SetEase(Ease.OutElastic));
         }
 
         // =====================================================
