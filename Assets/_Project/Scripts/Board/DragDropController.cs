@@ -38,6 +38,12 @@ namespace AutoBattler.Client.Board
         [Tooltip("Z au-dessus duquel un drop depuis le board déclenche une vente")]
         [SerializeField] private float sellThresholdZ = 6f;
 
+        [Header("Drop Zone Indicators")]
+        [Tooltip("Indicateur visuel de la zone board (affiché pendant le drag)")]
+        [SerializeField] private GameObject dropZoneBoard;
+        [Tooltip("Indicateur visuel de la zone de vente (affiché pendant le drag)")]
+        [SerializeField] private GameObject dropZoneSell;
+
         [Header("Animation")]
         [SerializeField] private float pickupDuration = 0.15f;
         [SerializeField] private float dropDuration = 0.2f;
@@ -61,6 +67,9 @@ namespace AutoBattler.Client.Board
                 mainCamera = Camera.main;
 
             _dragPlane = new Plane(Vector3.up, new Vector3(0f, dragPlaneHeight, 0f));
+
+            // Cacher les indicateurs au démarrage
+            SetDropZonesVisible(false);
         }
 
         private void Update()
@@ -89,7 +98,7 @@ namespace AutoBattler.Client.Board
 
             // Déterminer la source
             var shopClick = hit.transform.GetComponent<ShopCardClick>();
-            if (shopClick != null)
+            if (shopClick != null && shopClick.enabled)
             {
                 StartDrag(hit.transform, draggable, DragSource.Shop, shopClick.ShopIndex);
                 return;
@@ -122,8 +131,7 @@ namespace AutoBattler.Client.Board
             _draggedObject.DOScale(_dragStartScale * dragScale, pickupDuration)
                 .SetEase(Ease.OutBack);
 
-            if (boardManager != null && _dragSource != DragSource.Shop)
-                boardManager.ShowAllHighlights(true);
+            SetDropZonesVisible(true);
         }
 
         // =====================================================
@@ -160,9 +168,7 @@ namespace AutoBattler.Client.Board
         private void EndDrag()
         {
             _isDragging = false;
-
-            if (boardManager != null)
-                boardManager.HideAllHighlights();
+            SetDropZonesVisible(false);
 
             if (_draggedObject == null) return;
 
@@ -233,8 +239,7 @@ namespace AutoBattler.Client.Board
                 return;
             }
 
-            var slot = boardManager?.GetNearestPlayerSlot(dropPos);
-            if (slot != null)
+            if (boardManager != null && boardManager.IsInBoardZone(dropPos))
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
@@ -245,10 +250,10 @@ namespace AutoBattler.Client.Board
                 // Animer la carte vers le board puis la désactiver
                 // (le serveur enverra OnBoardUpdated qui créera le token sur le board)
                 var target = _draggedObject;
-                var targetPos = slot.transform.position + Vector3.up * 0.01f;
+                var boardCenter = boardManager.PlayerBoardCenter;
                 target.DOKill();
                 DOTween.Sequence()
-                    .Append(target.DOMove(targetPos, dropDuration).SetEase(Ease.OutQuad))
+                    .Append(target.DOMove(boardCenter + Vector3.up * 0.1f, dropDuration).SetEase(Ease.OutQuad))
                     .Join(target.DOScale(Vector3.zero, dropDuration).SetEase(Ease.InBack))
                     .OnComplete(() =>
                     {
@@ -297,19 +302,16 @@ namespace AutoBattler.Client.Board
             }
 
             // Réorganisation
-            var slot = boardManager?.GetNearestPlayerSlot(dropPos);
-            if (slot != null)
+            if (boardManager != null && boardManager.IsInBoardZone(dropPos))
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
                 GameManager.Instance.Server?.MoveMinionAsync(instanceId, slotIndex);
 
-                var targetPos = slot.transform.position + Vector3.up * 0.01f;
+                // Le serveur enverra OnBoardUpdated qui repositionnera tous les tokens
                 var target = _draggedObject;
                 target.DOKill();
-                DOTween.Sequence()
-                    .Append(target.DOMove(targetPos, dropDuration).SetEase(Ease.OutQuad))
-                    .Join(target.DOScale(_dragStartScale, dropDuration));
+                target.DOScale(_dragStartScale, dropDuration);
             }
             else
             {
@@ -341,9 +343,13 @@ namespace AutoBattler.Client.Board
             _isDragging = false;
             _dragSource = DragSource.None;
             ClearDragState();
+            SetDropZonesVisible(false);
+        }
 
-            if (boardManager != null)
-                boardManager.HideAllHighlights();
+        private void SetDropZonesVisible(bool visible)
+        {
+            if (dropZoneBoard != null) dropZoneBoard.SetActive(visible);
+            if (dropZoneSell != null) dropZoneSell.SetActive(visible);
         }
     }
 

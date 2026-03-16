@@ -2,61 +2,50 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using DG.Tweening;
+using AutoBattler.Client.Cards;
+using AutoBattler.Client.Core;
+using AutoBattler.Client.Network;
 using AutoBattler.Client.Network.Protocol;
 
 namespace AutoBattler.Client.Board
 {
     /// <summary>
-    /// Gère le plateau de jeu : création des slots, placement des minions,
-    /// réorganisation dynamique et synchronisation avec le serveur.
+    /// Gère le board joueur et adversaire : placement des tokens,
+    /// repositionnement dynamique, synchronisation avec le serveur.
     ///
-    /// 📋 DANS UNITY EDITOR :
-    /// 1. Créer le prefab BoardSlot (voir BoardSlot.cs pour les instructions)
-    /// 2. Sélectionner le GameObject "BoardManager" dans la Hierarchy
-    /// 3. Glisser le prefab BoardSlot depuis Assets/_Project/Prefabs/ vers "Slot Prefab"
-    ///    ⚠️ Ce champ est OBLIGATOIRE — le board ne fonctionnera pas sans prefab
+    /// Écoute OnBoardUpdated pour créer/repositionner les tokens automatiquement.
+    /// Plus besoin de BoardSlot — les tokens sont positionnés directement.
     /// </summary>
     public class BoardManager : MonoBehaviour
     {
         [Header("Board Settings")]
-        [Tooltip("Espacement entre les slots (adapté aux tokens compacts ~1.2u)")]
-        [SerializeField] private float slotSpacing = 1.6f;
+        [Tooltip("Espacement entre les tokens sur le board")]
+        [SerializeField] private float slotSpacing = 2.8f;
 
         [Tooltip("Courbure de l'arc (0 = ligne droite)")]
-        [SerializeField] private float arcAmount = 0.5f;
+        [SerializeField] private float arcAmount = 0.3f;
 
-        [Tooltip("Nombre max de slots par côté")]
+        [Tooltip("Nombre max de minions par côté")]
         [SerializeField] private int maxSlots = 7;
-
-        [Header("References")]
-        [Tooltip("Prefab d'un slot (Quad + BoardSlot component + Material)")]
-        [SerializeField] private GameObject slotPrefab;
 
         [Header("Animation")]
         [SerializeField] private float repositionDuration = 0.3f;
         [SerializeField] private Ease repositionEase = Ease.OutQuad;
 
-        // Slots instanciés
-        private List<BoardSlot> _playerSlots = new List<BoardSlot>();
-        private List<BoardSlot> _opponentSlots = new List<BoardSlot>();
+        // Tokens sur le board joueur (InstanceId → MinionTokenVisual)
+        private Dictionary<string, MinionTokenVisual> _playerTokens = new Dictionary<string, MinionTokenVisual>();
+        private List<MinionState> _playerBoard = new List<MinionState>();
 
-        // Minions actuellement sur le board (InstanceId → GameObject)
-        private Dictionary<string, GameObject> _playerMinions = new Dictionary<string, GameObject>();
-        private Dictionary<string, GameObject> _opponentMinions = new Dictionary<string, GameObject>();
-
-        /// <summary>Liste des slots joueur</summary>
-        public IReadOnlyList<BoardSlot> PlayerSlots => _playerSlots;
-
-        /// <summary>Liste des slots adversaire</summary>
-        public IReadOnlyList<BoardSlot> OpponentSlots => _opponentSlots;
+        // Tokens sur le board adverse
+        private Dictionary<string, MinionTokenVisual> _opponentTokens = new Dictionary<string, MinionTokenVisual>();
 
         /// <summary>Centre du board joueur (dépend de la phase active)</summary>
-        private Vector3 PlayerBoardCenter
+        public Vector3 PlayerBoardCenter
         {
             get
             {
                 var surface = BoardSurface.Instance;
-                if (surface == null) return new Vector3(0.9f, 0.01f, 2.26f);
+                if (surface == null) return new Vector3(0f, 0.1f, 2.26f);
                 var layout = FindAnyObjectByType<PhaseLayoutManager>();
                 bool isCombat = layout != null && layout.IsCombat;
                 return surface.GetPlayerBoardCenter(isCombat);
@@ -64,192 +53,105 @@ namespace AutoBattler.Client.Board
         }
 
         /// <summary>Centre du board adversaire (combat only)</summary>
-        private Vector3 OpponentBoardCenter
+        public Vector3 OpponentBoardCenter
         {
             get
             {
                 var surface = BoardSurface.Instance;
-                if (surface == null) return new Vector3(0.9f, 0.01f, 4.91f);
+                if (surface == null) return new Vector3(0f, 0.1f, 4.91f);
                 return surface.GetOpponentBoardCenter();
             }
         }
 
-        private void Awake()
+        private void Start()
         {
-            if (slotPrefab == null)
-            {
-                Debug.LogError("[BoardManager] slotPrefab non assigné ! Glisser le prefab BoardSlot dans l'Inspector.");
-                return;
-            }
+            var server = GameManager.Instance?.Server;
+            if (server == null) return;
 
-            CreateSlots(_playerSlots, PlayerBoardCenter);
-            CreateSlots(_opponentSlots, OpponentBoardCenter);
+            server.OnBoardUpdated += HandleBoardUpdated;
+            Debug.Log("[BoardManager] Abonné à OnBoardUpdated");
+        }
+
+        private void OnDestroy()
+        {
+            var server = GameManager.Instance?.Server;
+            if (server == null) return;
+
+            server.OnBoardUpdated -= HandleBoardUpdated;
         }
 
         // =====================================================
-        // CRÉATION DES SLOTS
+        // HANDLER SERVEUR
         // =====================================================
 
-        private void CreateSlots(List<BoardSlot> slotList, Vector3 center)
+        private void HandleBoardUpdated(List<MinionState> minions)
         {
-            var positions = BoardLayout.CalculatePositions(maxSlots, center, slotSpacing, arcAmount);
-
-            for (int i = 0; i < maxSlots; i++)
-            {
-                var slotObj = Instantiate(slotPrefab, positions[i], Quaternion.identity, transform);
-
-                var slot = slotObj.GetComponent<BoardSlot>();
-                if (slot == null)
-                {
-                    Debug.LogError("[BoardManager] Le prefab BoardSlot n'a pas de composant BoardSlot !");
-                    continue;
-                }
-
-                slot.Setup(i);
-                slotObj.SetActive(false); // Masqué par défaut, activé selon le nombre d'unités
-                slotList.Add(slot);
-            }
+            Debug.Log($"[BoardManager] OnBoardUpdated reçu : {minions.Count} minions");
+            _playerBoard = minions;
+            UpdatePlayerBoard(minions);
         }
 
         // =====================================================
-        // PLACEMENT ET REPOSITIONNEMENT
+        // MISE À JOUR DU BOARD
         // =====================================================
 
-        /// <summary>
-        /// Met à jour le board joueur à partir de l'état serveur.
-        /// Repositionne tous les slots et minions avec animation.
-        /// </summary>
-        public Tween UpdatePlayerBoard(List<MinionState> minions, System.Func<MinionState, GameObject> getOrCreateVisual)
-        {
-            return UpdateBoard(_playerSlots, _playerMinions, minions, PlayerBoardCenter, getOrCreateVisual);
-        }
-
-        /// <summary>
-        /// Met à jour le board adversaire (pour le combat).
-        /// </summary>
-        public Tween UpdateOpponentBoard(List<MinionState> minions, System.Func<MinionState, GameObject> getOrCreateVisual)
-        {
-            return UpdateBoard(_opponentSlots, _opponentMinions, minions, OpponentBoardCenter, getOrCreateVisual);
-        }
-
-        private Tween UpdateBoard(
-            List<BoardSlot> slots,
-            Dictionary<string, GameObject> minionMap,
-            List<MinionState> minions,
-            Vector3 center,
-            System.Func<MinionState, GameObject> getOrCreateVisual)
+        private void UpdatePlayerBoard(List<MinionState> minions)
         {
             int count = minions.Count;
-            var positions = BoardLayout.CalculatePositions(count, center, slotSpacing, arcAmount);
+            var positions = BoardLayout.CalculatePositions(count, PlayerBoardCenter, slotSpacing, arcAmount);
 
-            // Activer/désactiver les slots selon le nombre
-            for (int i = 0; i < slots.Count; i++)
-                slots[i].gameObject.SetActive(i < count);
-
-            // Déplacer les slots aux bonnes positions
-            var sequence = DOTween.Sequence();
-
-            // Retirer les minions qui ne sont plus sur le board
+            // Retirer les tokens qui ne sont plus sur le board
             var currentIds = new HashSet<string>(minions.Select(m => m.InstanceId));
-            var toRemove = minionMap.Keys.Where(id => !currentIds.Contains(id)).ToList();
+            var toRemove = _playerTokens.Keys.Where(id => !currentIds.Contains(id)).ToList();
             foreach (var id in toRemove)
             {
-                if (minionMap.TryGetValue(id, out var obj) && obj != null)
-                    obj.SetActive(false); // Retour au pool plus tard
-                minionMap.Remove(id);
+                if (_playerTokens.TryGetValue(id, out var token) && token != null)
+                {
+                    token.AnimateDeath();
+                }
+                _playerTokens.Remove(id);
             }
 
-            // Placer/déplacer les minions
+            // Placer/déplacer les tokens
             for (int i = 0; i < count; i++)
             {
                 var minionState = minions[i];
                 var targetPos = positions[i];
 
-                // Déplacer le slot
-                slots[i].transform.DOMove(targetPos, repositionDuration).SetEase(repositionEase);
-
-                // Obtenir ou créer le visuel du minion
-                if (!minionMap.TryGetValue(minionState.InstanceId, out var minionObj) || minionObj == null)
+                if (!_playerTokens.TryGetValue(minionState.InstanceId, out var token) || token == null)
                 {
-                    minionObj = getOrCreateVisual(minionState);
-                    minionMap[minionState.InstanceId] = minionObj;
+                    // Créer un nouveau token
+                    token = CardFactory.Instance?.CreateToken(minionState, showTier: false);
+                    if (token == null) continue;
+
+                    token.transform.position = targetPos;
+                    token.SetBasePosition(targetPos);
+                    token.AnimateSpawn(i * 0.05f);
+
+                    _playerTokens[minionState.InstanceId] = token;
                 }
-
-                // Animer le minion vers sa position (légèrement au-dessus du slot)
-                var minionTargetPos = targetPos + Vector3.up * 0.01f;
-                sequence.Join(
-                    minionObj.transform.DOMove(minionTargetPos, repositionDuration)
-                        .SetEase(repositionEase)
-                );
-
-                minionObj.SetActive(true);
-                slots[i].Place(minionObj.transform);
-            }
-
-            return sequence;
-        }
-
-        // =====================================================
-        // RECHERCHE DE SLOT
-        // =====================================================
-
-        /// <summary>
-        /// Trouve le slot joueur le plus proche d'une position world.
-        /// Utilisé par le drag & drop pour déterminer où poser un minion.
-        /// </summary>
-        public BoardSlot GetNearestPlayerSlot(Vector3 worldPosition, float maxDistance = 2f)
-        {
-            BoardSlot nearest = null;
-            float bestDist = maxDistance;
-
-            foreach (var slot in _playerSlots)
-            {
-                if (!slot.gameObject.activeSelf) continue;
-                float dist = Vector3.Distance(worldPosition, slot.transform.position);
-                if (dist < bestDist)
+                else
                 {
-                    bestDist = dist;
-                    nearest = slot;
+                    // Déplacer le token existant
+                    token.transform.DOMove(targetPos, repositionDuration).SetEase(repositionEase);
+                    token.SetBasePosition(targetPos);
+                    token.UpdateStats(minionState.Attack, minionState.Health);
                 }
             }
 
-            // Aussi vérifier le prochain slot libre (pour ajouter un minion)
-            int activeCount = _playerSlots.Count(s => s.gameObject.activeSelf);
-            if (activeCount < maxSlots)
-            {
-                var nextSlot = _playerSlots[activeCount];
-                var positions = BoardLayout.CalculatePositions(activeCount + 1, PlayerBoardCenter, slotSpacing, arcAmount);
-                float dist = Vector3.Distance(worldPosition, positions[activeCount]);
-                if (dist < bestDist)
-                    nearest = nextSlot;
-            }
-
-            return nearest;
+            Debug.Log($"[BoardManager] Board joueur mis à jour : {count} minions");
         }
 
-        /// <summary>
-        /// Retourne le slot qui contient un minion donné (par InstanceId).
-        /// </summary>
-        public BoardSlot GetSlotByMinionId(string instanceId)
-        {
-            if (!_playerMinions.TryGetValue(instanceId, out var minionObj)) return null;
-
-            foreach (var slot in _playerSlots)
-            {
-                if (slot.OccupiedBy == minionObj.transform)
-                    return slot;
-            }
-
-            return null;
-        }
+        // =====================================================
+        // API POUR LE DRAG & DROP
+        // =====================================================
 
         /// <summary>
-        /// Retourne l'index d'insertion pour un drop à une position world donnée.
+        /// Retourne l'index d'insertion le plus proche pour un drop à une position donnée.
         /// </summary>
         public int GetInsertionIndex(Vector3 worldPosition)
         {
-            int activeCount = _playerSlots.Count(s => s.gameObject.activeSelf);
-            int count = Mathf.Min(activeCount + 1, maxSlots);
+            int count = Mathf.Min(_playerBoard.Count + 1, maxSlots);
             var positions = BoardLayout.CalculatePositions(count, PlayerBoardCenter, slotSpacing, arcAmount);
 
             float bestDist = float.MaxValue;
@@ -268,22 +170,25 @@ namespace AutoBattler.Client.Board
             return bestIndex;
         }
 
-        // =====================================================
-        // HIGHLIGHT (pour le drag & drop)
-        // =====================================================
-
-        /// <summary>Montre les highlights sur tous les slots joueur</summary>
-        public void ShowAllHighlights(bool isValid)
+        /// <summary>
+        /// Vérifie si un drop est dans la zone du board joueur.
+        /// </summary>
+        public bool IsInBoardZone(Vector3 worldPosition, float tolerance = 3f)
         {
-            foreach (var slot in _playerSlots)
-                slot.ShowHighlight(isValid);
+            var center = PlayerBoardCenter;
+            return Mathf.Abs(worldPosition.z - center.z) < tolerance;
         }
 
-        /// <summary>Cache tous les highlights</summary>
-        public void HideAllHighlights()
+        /// <summary>
+        /// Retourne le token d'un minion par son InstanceId.
+        /// </summary>
+        public MinionTokenVisual GetPlayerToken(string instanceId)
         {
-            foreach (var slot in _playerSlots)
-                slot.HideHighlight();
+            _playerTokens.TryGetValue(instanceId, out var token);
+            return token;
         }
+
+        /// <summary>Nombre de minions sur le board joueur</summary>
+        public int PlayerMinionCount => _playerBoard.Count;
     }
 }
