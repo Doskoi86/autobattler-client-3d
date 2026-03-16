@@ -560,6 +560,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Cards.CardFactory
   cardPrefab: {fileID: 4501158238450805939, guid: 623997e6f75858a4d8360b1524b05bae, type: 3}
+  tokenPrefab: {fileID: 3287625862985004264, guid: e353895dba497dd4f9619f128d2733cc, type: 3}
+  tokenScale: 3
 --- !u!4 &650099225
 Transform:
   m_ObjectHideFlags: 0

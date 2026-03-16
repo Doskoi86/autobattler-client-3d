@@ -35,9 +35,9 @@ namespace AutoBattler.Client.Shop
         [SerializeField] private float sellAnimDuration = 0.25f;
         [SerializeField] private float rerollAnimDuration = 0.3f;
 
-        // Cartes actuellement dans le shop
-        private List<CardVisual> _shopCards = new List<CardVisual>();
-        private Dictionary<string, CardVisual> _shopCardMap = new Dictionary<string, CardVisual>();
+        // Tokens actuellement dans le shop
+        private List<MinionTokenVisual> _shopTokens = new List<MinionTokenVisual>();
+        private Dictionary<string, MinionTokenVisual> _shopTokenMap = new Dictionary<string, MinionTokenVisual>();
         private int _currentGold;
         private int _currentTier;
         private int _upgradeCost;
@@ -173,12 +173,12 @@ namespace AutoBattler.Client.Shop
             _currentGold = gold;
             OnGoldChanged?.Invoke(_currentGold);
 
-            var shopCard = _shopCards.FirstOrDefault(c => c != null && c.Data?.InstanceId == instanceId);
-            if (shopCard != null)
+            var shopToken = _shopTokens.FirstOrDefault(t => t != null && t.Data?.InstanceId == instanceId);
+            if (shopToken != null)
             {
-                shopCard.AnimateDeath();
-                _shopCards[_shopCards.IndexOf(shopCard)] = null;
-                _shopCardMap.Remove(instanceId);
+                shopToken.AnimateDeath();
+                _shopTokens[_shopTokens.IndexOf(shopToken)] = null;
+                _shopTokenMap.Remove(instanceId);
             }
 
             Debug.Log($"[Shop] Acheté {name} — Or : {gold}");
@@ -213,11 +213,12 @@ namespace AutoBattler.Client.Shop
             _isFrozen = !_isFrozen;
             OnFreezeChanged?.Invoke(_isFrozen);
 
-            foreach (var card in _shopCards)
+            foreach (var token in _shopTokens)
             {
-                if (card == null) continue;
+                if (token == null) continue;
+                token.SetFrozen(_isFrozen);
                 if (_isFrozen)
-                    card.transform.DOPunchScale(Vector3.one * 0.05f, 0.2f);
+                    token.transform.DOPunchScale(Vector3.one * 0.05f, 0.2f);
             }
 
             Debug.Log($"[Shop] Shop {(_isFrozen ? "gelé" : "dégelé")}");
@@ -248,15 +249,15 @@ namespace AutoBattler.Client.Shop
 
         private void RefreshShopVisuals(List<ShopOfferState> offers)
         {
-            foreach (var card in _shopCards)
+            foreach (var token in _shopTokens)
             {
-                if (card != null)
+                if (token != null)
                 {
-                    _shopCardMap.Remove(card.Data?.InstanceId ?? "");
-                    card.gameObject.SetActive(false);
+                    _shopTokenMap.Remove(token.Data?.InstanceId ?? "");
+                    token.gameObject.SetActive(false);
                 }
             }
-            _shopCards.Clear();
+            _shopTokens.Clear();
 
             if (CardFactory.Instance == null) return;
 
@@ -280,29 +281,23 @@ namespace AutoBattler.Client.Shop
                     IsGolden = false
                 };
 
-                var card = CardFactory.Instance.CreateCard(minionData);
-                if (card == null) continue;
+                var token = CardFactory.Instance.CreateToken(minionData, showTier: true);
+                if (token == null) continue;
 
                 var targetPos = new Vector3(startX + i * shopSpacing, center.y, center.z);
+                var baseScale = token.transform.localScale;
 
-                card.transform.position = targetPos + Vector3.up * 2f;
-                card.transform.localScale = Vector3.zero;
-                card.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad)
+                token.transform.position = targetPos + Vector3.up * 2f;
+                token.transform.localScale = Vector3.zero;
+                token.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad)
                     .SetDelay(i * 0.08f);
-                card.transform.DOScale(Vector3.one, rerollAnimDuration).SetEase(Ease.OutBack)
+                token.transform.DOScale(baseScale, rerollAnimDuration).SetEase(Ease.OutBack)
                     .SetDelay(i * 0.08f);
 
-                card.SetBasePosition(targetPos);
+                token.SetBasePosition(targetPos);
 
-                var clickHandler = card.GetComponent<ShopCardClick>();
-                if (clickHandler != null)
-                {
-                    clickHandler.enabled = true;
-                    clickHandler.Setup(i, this);
-                }
-
-                _shopCards.Add(card);
-                _shopCardMap[offer.InstanceId] = card;
+                _shopTokens.Add(token);
+                _shopTokenMap[offer.InstanceId] = token;
             }
         }
     }
