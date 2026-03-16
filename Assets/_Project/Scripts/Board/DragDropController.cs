@@ -3,18 +3,20 @@ using UnityEngine.InputSystem;
 using DG.Tweening;
 using AutoBattler.Client.Cards;
 using AutoBattler.Client.Shop;
+using AutoBattler.Client.Hand;
 using AutoBattler.Client.Core;
 
 namespace AutoBattler.Client.Board
 {
     /// <summary>
     /// Contrôleur de drag & drop 3D par raycast.
-    /// Gère 3 types de drag selon la source :
-    ///   - Shop → lâcher sous la zone shop = achat
-    ///   - Main → lâcher sur un slot board = jouer (main → board)
-    ///   - Board → lâcher sur un autre slot = déplacer
+    /// Fonctionne avec IDraggable (MinionTokenVisual et CardVisual).
     ///
-    /// Fonctionne en 3D (Physics.Raycast), pas en UI (Canvas).
+    /// Flux supportés :
+    ///   - Shop token → drag hors du shop → achat → token disparaît, carte apparaît en main
+    ///   - Carte en main → drag sur le board → jouer → carte disparaît, token apparaît sur le board
+    ///   - Token sur le board → drag sur un autre slot → réorganiser
+    ///   - Token sur le board → drag vers le haut → vendre
     /// </summary>
     public class DragDropController : MonoBehaviour
     {
@@ -26,17 +28,14 @@ namespace AutoBattler.Client.Board
         [Tooltip("Hauteur du plan invisible de drag (Y world)")]
         [SerializeField] private float dragPlaneHeight = 0.5f;
 
-        [Tooltip("Hauteur à laquelle la carte est soulevée pendant le drag")]
-        [SerializeField] private float dragLiftHeight = 1f;
-
-        [Tooltip("Échelle de la carte pendant le drag")]
+        [Tooltip("Échelle multiplicateur pendant le drag")]
         [SerializeField] private float dragScale = 1.2f;
 
-        [Header("Zones")]
-        [Tooltip("Seuil Z en dessous duquel un drop depuis le shop déclenche un achat")]
+        [Header("Zones — seuils Z pour déterminer l'action")]
+        [Tooltip("Z en dessous duquel un drop depuis le shop déclenche un achat")]
         [SerializeField] private float shopBuyThresholdZ = 4f;
 
-        [Tooltip("Seuil Z au-dessus duquel un drop depuis la main/board est considéré comme vente")]
+        [Tooltip("Z au-dessus duquel un drop depuis le board déclenche une vente")]
         [SerializeField] private float sellThresholdZ = 6f;
 
         [Header("Animation")]
@@ -49,7 +48,7 @@ namespace AutoBattler.Client.Board
         // État du drag
         private bool _isDragging;
         private Transform _draggedObject;
-        private CardVisual _draggedCard;
+        private IDraggable _draggedDraggable;
         private Vector3 _dragStartPosition;
         private Vector3 _dragStartScale;
         private DragSource _dragSource;
@@ -73,7 +72,7 @@ namespace AutoBattler.Client.Board
         }
 
         // =====================================================
-        // PICKUP
+        // PICKUP — détecte un clic sur un IDraggable
         // =====================================================
 
         private void CheckForPickup()
@@ -82,37 +81,43 @@ namespace AutoBattler.Client.Board
 
             var ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-            if (Physics.Raycast(ray, out RaycastHit hit, 100f))
-            {
-                var card = hit.transform.GetComponent<CardVisual>();
-                if (card == null) return;
+            if (!Physics.Raycast(ray, out RaycastHit hit, 100f)) return;
 
-                // Déterminer la source du drag
-                var shopClick = hit.transform.GetComponent<ShopCardClick>();
-                if (shopClick != null)
-                {
-                    StartDrag(card, DragSource.Shop, shopClick.ShopIndex);
-                }
-                else if (card.DragEnabled)
-                {
-                    // TODO: distinguer hand vs board quand la main sera implémentée
-                    StartDrag(card, DragSource.Board, -1);
-                }
+            // Chercher un IDraggable (token ou carte)
+            var draggable = hit.transform.GetComponent<IDraggable>();
+            if (draggable == null || !draggable.CanDrag) return;
+
+            // Déterminer la source
+            var shopClick = hit.transform.GetComponent<ShopCardClick>();
+            if (shopClick != null)
+            {
+                StartDrag(hit.transform, draggable, DragSource.Shop, shopClick.ShopIndex);
+                return;
             }
+
+            // Vérifier si c'est une carte en main
+            var cardVisual = hit.transform.GetComponent<CardVisual>();
+            if (cardVisual != null && HandManager.Instance != null &&
+                HandManager.Instance.GetCard(cardVisual.MinionInstanceId) != null)
+            {
+                StartDrag(hit.transform, draggable, DragSource.Hand, -1);
+                return;
+            }
+
+            // Sinon c'est un token sur le board
+            StartDrag(hit.transform, draggable, DragSource.Board, -1);
         }
 
-        private void StartDrag(CardVisual card, DragSource source, int shopIndex)
+        private void StartDrag(Transform target, IDraggable draggable, DragSource source, int shopIndex)
         {
             _isDragging = true;
-            _draggedObject = card.transform;
-            _draggedCard = card;
-            _dragStartPosition = card.transform.position;
-            _dragStartScale = card.transform.localScale;
+            _draggedObject = target;
+            _draggedDraggable = draggable;
+            _dragStartPosition = target.position;
+            _dragStartScale = target.localScale;
             _dragSource = source;
             _dragShopIndex = shopIndex;
 
-            // Légère augmentation de taille, pas de déplacement
-            // (le UpdateDrag prend le relais immédiatement pour suivre le curseur)
             _draggedObject.DOKill();
             _draggedObject.DOScale(_dragStartScale * dragScale, pickupDuration)
                 .SetEase(Ease.OutBack);
@@ -122,7 +127,7 @@ namespace AutoBattler.Client.Board
         }
 
         // =====================================================
-        // DRAG
+        // DRAG — suit le curseur
         // =====================================================
 
         private void UpdateDrag()
@@ -137,8 +142,6 @@ namespace AutoBattler.Client.Board
             if (_dragPlane.Raycast(ray, out float distance))
             {
                 var worldPos = ray.GetPoint(distance);
-                // La carte suit le curseur directement sur le plan, avec un léger lift
-                // pour qu'elle ne traverse pas le plateau
                 _draggedObject.position = new Vector3(
                     worldPos.x,
                     dragPlaneHeight + 0.15f,
@@ -151,7 +154,7 @@ namespace AutoBattler.Client.Board
         }
 
         // =====================================================
-        // DROP
+        // DROP — détermine l'action selon la source et la position
         // =====================================================
 
         private void EndDrag()
@@ -183,19 +186,23 @@ namespace AutoBattler.Client.Board
         }
 
         /// <summary>
-        /// Drop depuis le shop : si en dessous du seuil Z → acheter
+        /// Drop depuis le shop : si en dessous du seuil Z → acheter.
+        /// Le serveur va envoyer OnMinionBought + OnHandUpdated qui créeront la carte en main.
         /// </summary>
         private void HandleShopDrop(Vector3 dropPos)
         {
-            if (dropPos.z < shopBuyThresholdZ && ShopManager.Instance != null && ShopManager.Instance.BuyCard(_dragShopIndex))
+            if (dropPos.z < shopBuyThresholdZ &&
+                ShopManager.Instance != null &&
+                ShopManager.Instance.BuyCard(_dragShopIndex))
             {
-                // Achat réussi — animer la carte vers la main
-                Debug.Log($"[DragDrop] Achat depuis le shop index {_dragShopIndex}");
+                Debug.Log($"[DragDrop] Achat shop index {_dragShopIndex}");
 
+                // Animer le token vers la main puis le désactiver
                 var target = _draggedObject;
                 var handCenter = BoardSurface.Instance != null
                     ? BoardSurface.Instance.GetHandCenter(false)
-                    : new Vector3(0.9f, 0.5f, -2.78f);
+                    : new Vector3(0f, 0.5f, -2.78f);
+
                 target.DOKill();
                 DOTween.Sequence()
                     .Append(target.DOMove(handCenter + Vector3.up * 0.5f, 0.3f).SetEase(Ease.InQuad))
@@ -207,52 +214,95 @@ namespace AutoBattler.Client.Board
             }
             else
             {
-                // Pas assez d'or ou retour au shop
                 ReturnToStart();
             }
 
-            _draggedObject = null;
-            _draggedCard = null;
+            ClearDragState();
         }
 
         /// <summary>
-        /// Drop depuis la main : si sur un slot du board → jouer
+        /// Drop depuis la main : si sur le board → jouer le minion.
+        /// Le serveur va envoyer OnBoardUpdated + OnHandUpdated.
         /// </summary>
         private void HandleHandDrop(Vector3 dropPos)
         {
+            if (_draggedDraggable == null)
+            {
+                ReturnToStart();
+                ClearDragState();
+                return;
+            }
+
             var slot = boardManager?.GetNearestPlayerSlot(dropPos);
-            if (slot != null && _draggedCard != null)
+            if (slot != null)
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
-                GameManager.Instance.Server?.PlayMinionAsync(_draggedCard.MinionInstanceId, slotIndex);
+                string instanceId = _draggedDraggable.MinionInstanceId;
+                GameManager.Instance.Server?.PlayMinionAsync(instanceId, slotIndex);
 
-                var targetPos = slot.transform.position + Vector3.up * 0.01f;
+                Debug.Log($"[DragDrop] Jouer {instanceId} au slot {slotIndex}");
+
+                // Animer la carte vers le board puis la désactiver
+                // (le serveur enverra OnBoardUpdated qui créera le token sur le board)
                 var target = _draggedObject;
+                var targetPos = slot.transform.position + Vector3.up * 0.01f;
                 target.DOKill();
                 DOTween.Sequence()
                     .Append(target.DOMove(targetPos, dropDuration).SetEase(Ease.OutQuad))
-                    .Join(target.DOScale(_dragStartScale, dropDuration))
-                    .Append(target.DOPunchScale(Vector3.one * 0.05f, 0.15f));
+                    .Join(target.DOScale(Vector3.zero, dropDuration).SetEase(Ease.InBack))
+                    .OnComplete(() =>
+                    {
+                        if (target != null) target.gameObject.SetActive(false);
+                    });
             }
             else
             {
                 ReturnToStart();
             }
 
-            _draggedObject = null;
-            _draggedCard = null;
+            ClearDragState();
         }
 
         /// <summary>
-        /// Drop depuis le board : si sur un autre slot → déplacer
+        /// Drop depuis le board : réorganiser ou vendre.
         /// </summary>
         private void HandleBoardDrop(Vector3 dropPos)
         {
+            if (_draggedDraggable == null)
+            {
+                ReturnToStart();
+                ClearDragState();
+                return;
+            }
+
+            // Vente si drop au-dessus du seuil
+            if (dropPos.z > sellThresholdZ)
+            {
+                string instanceId = _draggedDraggable.MinionInstanceId;
+                ShopManager.Instance?.SellCard(instanceId);
+
+                Debug.Log($"[DragDrop] Vente {instanceId}");
+
+                var target = _draggedObject;
+                target.DOKill();
+                DOTween.Sequence()
+                    .Append(target.DOScale(Vector3.zero, 0.25f).SetEase(Ease.InBack))
+                    .OnComplete(() =>
+                    {
+                        if (target != null) target.gameObject.SetActive(false);
+                    });
+
+                ClearDragState();
+                return;
+            }
+
+            // Réorganisation
             var slot = boardManager?.GetNearestPlayerSlot(dropPos);
-            if (slot != null && _draggedCard != null)
+            if (slot != null)
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
-                GameManager.Instance.Server?.MoveMinionAsync(_draggedCard.MinionInstanceId, slotIndex);
+                string instanceId = _draggedDraggable.MinionInstanceId;
+                GameManager.Instance.Server?.MoveMinionAsync(instanceId, slotIndex);
 
                 var targetPos = slot.transform.position + Vector3.up * 0.01f;
                 var target = _draggedObject;
@@ -266,8 +316,7 @@ namespace AutoBattler.Client.Board
                 ReturnToStart();
             }
 
-            _draggedObject = null;
-            _draggedCard = null;
+            ClearDragState();
         }
 
         private void ReturnToStart()
@@ -279,17 +328,19 @@ namespace AutoBattler.Client.Board
             DOTween.Sequence()
                 .Append(target.DOMove(_dragStartPosition, returnDuration).SetEase(Ease.OutQuad))
                 .Join(target.DOScale(_dragStartScale, returnDuration));
+        }
 
+        private void ClearDragState()
+        {
             _draggedObject = null;
-            _draggedCard = null;
+            _draggedDraggable = null;
         }
 
         private void CancelDrag()
         {
             _isDragging = false;
-            _draggedObject = null;
-            _draggedCard = null;
             _dragSource = DragSource.None;
+            ClearDragState();
 
             if (boardManager != null)
                 boardManager.HideAllHighlights();
@@ -297,7 +348,7 @@ namespace AutoBattler.Client.Board
     }
 
     /// <summary>
-    /// Interface pour les objets draggables (minions sur le board ou en main).
+    /// Interface pour les objets draggables (tokens et cartes).
     /// </summary>
     public interface IDraggable
     {

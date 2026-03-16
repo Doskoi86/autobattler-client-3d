@@ -296,6 +296,12 @@ namespace AutoBattler.Client.Shop
 
                 token.SetBasePosition(targetPos);
 
+                // Ajouter le marqueur shop pour le DragDropController
+                var shopClick = token.gameObject.GetComponent<ShopCardClick>();
+                if (shopClick == null)
+                    shopClick = token.gameObject.AddComponent<ShopCardClick>();
+                shopClick.Setup(i, this);
+
                 _shopTokens.Add(token);
                 _shopTokenMap[offer.InstanceId] = token;
             }

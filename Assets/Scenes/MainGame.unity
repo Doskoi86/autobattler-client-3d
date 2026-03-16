@@ -244,7 +244,6 @@ MonoBehaviour:
   mainCamera: {fileID: 330585545}
   boardManager: {fileID: 1112816708}
   dragPlaneHeight: 0.5
-  dragLiftHeight: 1
   dragScale: 1.2
   shopBuyThresholdZ: 4
   sellThresholdZ: 6
@@ -559,9 +558,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e2ed07fcf0d15c459f52e4aa529180a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Cards.CardFactory
-  cardPrefab: {fileID: 4501158238450805939, guid: 623997e6f75858a4d8360b1524b05bae, type: 3}
+  cardPrefab: {fileID: 4501158238450805939, guid: 4aecd4a9dc4997f44abca1335ba47067, type: 3}
   tokenPrefab: {fileID: 3287625862985004264, guid: e353895dba497dd4f9619f128d2733cc, type: 3}
-  tokenScale: 3
+  cardScale: 1
+  tokenScale: 1
 --- !u!4 &650099225
 Transform:
   m_ObjectHideFlags: 0
@@ -1103,7 +1103,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4bfa9ff4ab91cfd4a995e4b74ff537ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Shop.ShopManager
-  shopSpacing: 1.8
+  shopSpacing: 2.5
   sellAnimDuration: 0.25
   rerollAnimDuration: 0.3
 --- !u!1 &1877193982

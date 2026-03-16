@@ -22,8 +22,11 @@ namespace AutoBattler.Client.Cards
         [Tooltip("Prefab de token compact (pour le shop et le board)")]
         [SerializeField] private GameObject tokenPrefab;
 
+        [Tooltip("Scale de la carte en main à l'instanciation")]
+        [SerializeField] private float cardScale = 0.85f;
+
         [Tooltip("Scale du token à l'instanciation (ajuster si les sprites sont trop petits/grands)")]
-        [SerializeField] private float tokenScale = 3f;
+        [SerializeField] private float tokenScale = 1f;
 
         private void Awake()
         {
@@ -44,6 +47,7 @@ namespace AutoBattler.Client.Cards
 
             var card = Instantiate(cardPrefab);
             card.name = $"Card_{data.Name}";
+            card.transform.localScale = Vector3.one * cardScale;
 
             var visual = card.GetComponent<CardVisual>();
             if (visual == null)
