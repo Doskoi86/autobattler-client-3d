@@ -296,11 +296,13 @@ namespace AutoBattler.Client.Shop
 
                 token.SetBasePosition(targetPos);
 
-                // Ajouter le marqueur shop pour le DragDropController
+                // Activer et configurer le marqueur shop (déjà sur le prefab, désactivé par défaut)
                 var shopClick = token.gameObject.GetComponent<ShopCardClick>();
-                if (shopClick == null)
-                    shopClick = token.gameObject.AddComponent<ShopCardClick>();
-                shopClick.Setup(i, this);
+                if (shopClick != null)
+                {
+                    shopClick.enabled = true;
+                    shopClick.Setup(offer.Index, this);
+                }
 
                 _shopTokens.Add(token);
                 _shopTokenMap[offer.InstanceId] = token;

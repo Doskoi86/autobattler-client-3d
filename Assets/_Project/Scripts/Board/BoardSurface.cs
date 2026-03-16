@@ -77,6 +77,12 @@ namespace AutoBattler.Client.Board
         [Tooltip("Centre de la main en combat (peut différer de recruit)")]
         [SerializeField] private Transform combatHandAnchor;
 
+        [Header("Fallback Positions (si ancres non assignées)")]
+        [SerializeField] private Vector3 playerBoardFallback = new Vector3(0f, 0.1f, 2.26f);
+        [SerializeField] private Vector3 handFallback = new Vector3(0f, 0.1f, -2.78f);
+        [SerializeField] private Vector3 shopFallback = new Vector3(0f, 0.1f, 5.41f);
+        [SerializeField] private Vector3 opponentBoardFallback = new Vector3(0f, 0.1f, 4.91f);
+
         // --- Propriétés publiques ---
 
         // Permanentes
@@ -101,7 +107,7 @@ namespace AutoBattler.Client.Board
                 return combatPlayerBoardAnchor.position;
             if (playerBoardAnchor != null)
                 return playerBoardAnchor.position;
-            return new Vector3(0f, 0.1f, 2.26f);
+            return playerBoardFallback;
         }
 
         /// <summary>
@@ -113,7 +119,7 @@ namespace AutoBattler.Client.Board
                 return combatHandAnchor.position;
             if (handAnchor != null)
                 return handAnchor.position;
-            return new Vector3(0f, 0.1f, -2.78f);
+            return handFallback;
         }
 
         /// <summary>
@@ -123,7 +129,7 @@ namespace AutoBattler.Client.Board
         {
             if (shopAnchor != null)
                 return shopAnchor.position;
-            return new Vector3(0f, 0.1f, 5.41f);
+            return shopFallback;
         }
 
         /// <summary>
@@ -133,7 +139,7 @@ namespace AutoBattler.Client.Board
         {
             if (opponentBoardAnchor != null)
                 return opponentBoardAnchor.position;
-            return new Vector3(0f, 0.1f, 4.91f);
+            return opponentBoardFallback;
         }
 
         private void Awake()

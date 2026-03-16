@@ -32,6 +32,10 @@ namespace AutoBattler.Client.Board
         [SerializeField] private float repositionDuration = 0.3f;
         [SerializeField] private Ease repositionEase = Ease.OutQuad;
 
+        // Accesseurs pour le DragDropController
+        public float SlotSpacing => slotSpacing;
+        public float ArcAmount => arcAmount;
+
         // Tokens sur le board joueur (InstanceId → MinionTokenVisual)
         private Dictionary<string, MinionTokenVisual> _playerTokens = new Dictionary<string, MinionTokenVisual>();
         private List<MinionState> _playerBoard = new List<MinionState>();
@@ -45,7 +49,7 @@ namespace AutoBattler.Client.Board
             get
             {
                 var surface = BoardSurface.Instance;
-                if (surface == null) return new Vector3(0f, 0.1f, 2.26f);
+                if (surface == null) return Vector3.zero;
                 var layout = FindAnyObjectByType<PhaseLayoutManager>();
                 bool isCombat = layout != null && layout.IsCombat;
                 return surface.GetPlayerBoardCenter(isCombat);
@@ -58,7 +62,7 @@ namespace AutoBattler.Client.Board
             get
             {
                 var surface = BoardSurface.Instance;
-                if (surface == null) return new Vector3(0f, 0.1f, 4.91f);
+                if (surface == null) return Vector3.zero;
                 return surface.GetOpponentBoardCenter();
             }
         }
@@ -86,7 +90,7 @@ namespace AutoBattler.Client.Board
 
         private void HandleBoardUpdated(List<MinionState> minions)
         {
-            Debug.Log($"[BoardManager] OnBoardUpdated reçu : {minions.Count} minions");
+            Debug.Log($"[BoardManager] OnBoardUpdated reçu : {minions.Count} minions, center={PlayerBoardCenter}, spacing={slotSpacing}, arc={arcAmount}");
             _playerBoard = minions;
             UpdatePlayerBoard(minions);
         }
@@ -133,6 +137,8 @@ namespace AutoBattler.Client.Board
                 else
                 {
                     // Déplacer le token existant
+                    Debug.Log($"[BoardManager] Token {minionState.Name} → pos {targetPos}");
+                    token.transform.DOKill();
                     token.transform.DOMove(targetPos, repositionDuration).SetEase(repositionEase);
                     token.SetBasePosition(targetPos);
                     token.UpdateStats(minionState.Attack, minionState.Health);

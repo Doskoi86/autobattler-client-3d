@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using DG.Tweening;
@@ -32,11 +33,11 @@ namespace AutoBattler.Client.Board
         [SerializeField] private float dragScale = 1.2f;
 
         [Header("Zones — seuils Z pour déterminer l'action")]
-        [Tooltip("Z en dessous duquel un drop depuis le shop déclenche un achat")]
-        [SerializeField] private float shopBuyThresholdZ = 4f;
+        [Tooltip("Seuil Z fixe d'achat (utilisé seulement si dropZoneBoard n'est pas assigné)")]
+        [SerializeField] private float shopBuyThresholdZFallback = 4f;
 
-        [Tooltip("Z au-dessus duquel un drop depuis le board déclenche une vente")]
-        [SerializeField] private float sellThresholdZ = 6f;
+        [Tooltip("Seuil Z fixe de vente (utilisé seulement si dropZoneSell n'est pas assigné)")]
+        [SerializeField] private float sellThresholdZFallback = 4f;
 
         [Header("Drop Zone Indicators")]
         [Tooltip("Indicateur visuel de la zone board (affiché pendant le drag)")]
@@ -51,6 +52,10 @@ namespace AutoBattler.Client.Board
 
         private enum DragSource { None, Shop, Hand, Board }
 
+        [Header("Sorting")]
+        [Tooltip("Offset de sorting order appliqué pendant le drag pour passer au-dessus de tout")]
+        [SerializeField] private int dragSortingOffset = 100;
+
         // État du drag
         private bool _isDragging;
         private Transform _draggedObject;
@@ -60,6 +65,40 @@ namespace AutoBattler.Client.Board
         private DragSource _dragSource;
         private int _dragShopIndex;
         private Plane _dragPlane;
+        private Dictionary<SpriteRenderer, int> _savedSortingOrders = new Dictionary<SpriteRenderer, int>();
+
+        /// <summary>
+        /// Seuil Z d'achat calculé depuis le bord haut de la drop zone board.
+        /// Drop au-dessus de ce seuil depuis le shop = pas d'achat.
+        /// Drop en-dessous = achat.
+        /// </summary>
+        private float ShopBuyThresholdZ
+        {
+            get
+            {
+                if (dropZoneBoard == null) return shopBuyThresholdZFallback;
+                var t = dropZoneBoard.transform;
+                float halfDepth = 10f * t.lossyScale.z / 2f;
+                return t.position.z + halfDepth;
+            }
+        }
+
+        /// <summary>
+        /// Seuil Z de vente calculé dynamiquement depuis le bord bas de la drop zone sell.
+        /// Si la drop zone n'est pas assignée, utilise le fallback.
+        /// </summary>
+        private float SellThresholdZ
+        {
+            get
+            {
+                if (dropZoneSell == null) return sellThresholdZFallback;
+                // Un Plane Unity fait 10 unités de base. Scale Z = profondeur / 10.
+                // Le bord bas = position.z - (10 * scaleZ / 2)
+                var t = dropZoneSell.transform;
+                float halfDepth = 10f * t.lossyScale.z / 2f;
+                return t.position.z - halfDepth;
+            }
+        }
 
         private void Start()
         {
@@ -131,6 +170,7 @@ namespace AutoBattler.Client.Board
             _draggedObject.DOScale(_dragStartScale * dragScale, pickupDuration)
                 .SetEase(Ease.OutBack);
 
+            RaiseSortingOrder(_draggedObject);
             SetDropZonesVisible(true);
         }
 
@@ -197,7 +237,7 @@ namespace AutoBattler.Client.Board
         /// </summary>
         private void HandleShopDrop(Vector3 dropPos)
         {
-            if (dropPos.z < shopBuyThresholdZ &&
+            if (dropPos.z < ShopBuyThresholdZ &&
                 ShopManager.Instance != null &&
                 ShopManager.Instance.BuyCard(_dragShopIndex))
             {
@@ -281,7 +321,8 @@ namespace AutoBattler.Client.Board
             }
 
             // Vente si drop au-dessus du seuil
-            if (dropPos.z > sellThresholdZ)
+            float sellZ = SellThresholdZ;
+            if (dropPos.z > sellZ)
             {
                 string instanceId = _draggedDraggable.MinionInstanceId;
                 ShopManager.Instance?.SellCard(instanceId);
@@ -289,6 +330,7 @@ namespace AutoBattler.Client.Board
                 Debug.Log($"[DragDrop] Vente {instanceId}");
 
                 var target = _draggedObject;
+                RestoreSortingOrder(target);
                 target.DOKill();
                 DOTween.Sequence()
                     .Append(target.DOScale(Vector3.zero, 0.25f).SetEase(Ease.InBack))
@@ -301,20 +343,24 @@ namespace AutoBattler.Client.Board
                 return;
             }
 
-            // Réorganisation
+            // Réorganisation sur le board
             if (boardManager != null && boardManager.IsInBoardZone(dropPos))
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
-                GameManager.Instance.Server?.MoveMinionAsync(instanceId, slotIndex);
 
-                // Le serveur enverra OnBoardUpdated qui repositionnera tous les tokens
-                var target = _draggedObject;
-                target.DOKill();
-                target.DOScale(_dragStartScale, dropDuration);
+                // Restaurer AVANT l'appel serveur (car OnBoardUpdated est synchrone
+                // et le BoardManager lancera un DOMove qu'il ne faut pas tuer)
+                RestoreSortingOrder(_draggedObject);
+                _draggedObject.DOKill();
+                _draggedObject.localScale = _dragStartScale;
+
+                Debug.Log($"[DragDrop] Déplacer {instanceId} vers slot {slotIndex}");
+                GameManager.Instance.Server?.MoveMinionAsync(instanceId, slotIndex);
             }
             else
             {
+                // Hors zone → retour à la position de départ
                 ReturnToStart();
             }
 
@@ -326,6 +372,7 @@ namespace AutoBattler.Client.Board
             if (_draggedObject == null) return;
             var target = _draggedObject;
 
+            RestoreSortingOrder(target);
             target.DOKill();
             DOTween.Sequence()
                 .Append(target.DOMove(_dragStartPosition, returnDuration).SetEase(Ease.OutQuad))
@@ -350,6 +397,33 @@ namespace AutoBattler.Client.Board
         {
             if (dropZoneBoard != null) dropZoneBoard.SetActive(visible);
             if (dropZoneSell != null) dropZoneSell.SetActive(visible);
+        }
+
+        /// <summary>
+        /// Monte tous les SpriteRenderers de l'objet draggé au-dessus de tout.
+        /// </summary>
+        private void RaiseSortingOrder(Transform target)
+        {
+            _savedSortingOrders.Clear();
+            var renderers = target.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var sr in renderers)
+            {
+                _savedSortingOrders[sr] = sr.sortingOrder;
+                sr.sortingOrder += dragSortingOffset;
+            }
+        }
+
+        /// <summary>
+        /// Restaure les sorting orders originaux.
+        /// </summary>
+        private void RestoreSortingOrder(Transform target)
+        {
+            foreach (var kvp in _savedSortingOrders)
+            {
+                if (kvp.Key != null)
+                    kvp.Key.sortingOrder = kvp.Value;
+            }
+            _savedSortingOrders.Clear();
         }
     }
 

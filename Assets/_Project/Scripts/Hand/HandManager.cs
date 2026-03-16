@@ -72,7 +72,7 @@ namespace AutoBattler.Client.Hand
             get
             {
                 var surface = BoardSurface.Instance;
-                if (surface == null) return new Vector3(0.9f, 0.01f, -2.78f);
+                if (surface == null) return Vector3.zero;
                 var layout = FindAnyObjectByType<PhaseLayoutManager>();
                 bool isCombat = layout != null && layout.IsCombat;
                 return surface.GetHandCenter(isCombat);
