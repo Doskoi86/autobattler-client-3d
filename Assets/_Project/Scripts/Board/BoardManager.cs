@@ -19,8 +19,8 @@ namespace AutoBattler.Client.Board
     public class BoardManager : MonoBehaviour
     {
         [Header("Board Settings")]
-        [Tooltip("Espacement entre les slots")]
-        [SerializeField] private float slotSpacing = 1.8f;
+        [Tooltip("Espacement entre les slots (adapté aux tokens compacts ~1.2u)")]
+        [SerializeField] private float slotSpacing = 1.6f;
 
         [Tooltip("Courbure de l'arc (0 = ligne droite)")]
         [SerializeField] private float arcAmount = 0.5f;
@@ -50,17 +50,29 @@ namespace AutoBattler.Client.Board
         /// <summary>Liste des slots adversaire</summary>
         public IReadOnlyList<BoardSlot> OpponentSlots => _opponentSlots;
 
-        /// <summary>Centre du board joueur (depuis la zone BoardSurface)</summary>
-        private Vector3 PlayerBoardCenter =>
-            BoardSurface.Instance?.PlayerBoardZone != null
-                ? BoardSurface.Instance.PlayerBoardZone.position
-                : new Vector3(0f, 0.1f, -1f);
+        /// <summary>Centre du board joueur (dépend de la phase active)</summary>
+        private Vector3 PlayerBoardCenter
+        {
+            get
+            {
+                var surface = BoardSurface.Instance;
+                if (surface == null) return new Vector3(0.9f, 0.01f, 2.26f);
+                var layout = FindAnyObjectByType<PhaseLayoutManager>();
+                bool isCombat = layout != null && layout.IsCombat;
+                return surface.GetPlayerBoardCenter(isCombat);
+            }
+        }
 
-        /// <summary>Centre du board adversaire (depuis la zone BoardSurface)</summary>
-        private Vector3 OpponentBoardCenter =>
-            BoardSurface.Instance?.OpponentBoardZone != null
-                ? BoardSurface.Instance.OpponentBoardZone.position
-                : new Vector3(0f, 0.1f, 3f);
+        /// <summary>Centre du board adversaire (combat only)</summary>
+        private Vector3 OpponentBoardCenter
+        {
+            get
+            {
+                var surface = BoardSurface.Instance;
+                if (surface == null) return new Vector3(0.9f, 0.01f, 4.91f);
+                return surface.GetOpponentBoardCenter();
+            }
+        }
 
         private void Awake()
         {

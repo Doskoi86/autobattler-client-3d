@@ -28,7 +28,7 @@ namespace AutoBattler.Client.Hand
 
         [Header("Hand Layout")]
         [Tooltip("Espacement entre les cartes en main")]
-        [SerializeField] private float handSpacing = 1.6f;
+        [SerializeField] private float handSpacing = 1.1f;
 
         [Header("Animation")]
         [SerializeField] private float repositionDuration = 0.3f;
@@ -66,13 +66,16 @@ namespace AutoBattler.Client.Hand
         // ZONE DE RÉFÉRENCE
         // =====================================================
 
-        /// <summary>Position centrale de la zone main (depuis le BoardSurface)</summary>
+        /// <summary>Position centrale de la zone main (dépend de la phase active)</summary>
         private Vector3 HandCenter
         {
             get
             {
-                var zone = BoardSurface.Instance?.HandZone;
-                return zone != null ? zone.position : new Vector3(0f, 0.1f, -3.5f);
+                var surface = BoardSurface.Instance;
+                if (surface == null) return new Vector3(0.9f, 0.01f, -2.78f);
+                var layout = FindAnyObjectByType<PhaseLayoutManager>();
+                bool isCombat = layout != null && layout.IsCombat;
+                return surface.GetHandCenter(isCombat);
             }
         }
 

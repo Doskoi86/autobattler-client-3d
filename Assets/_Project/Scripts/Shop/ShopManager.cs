@@ -28,8 +28,8 @@ namespace AutoBattler.Client.Shop
         public static ShopManager Instance { get; private set; }
 
         [Header("Shop Layout")]
-        [Tooltip("Espacement entre les cartes du shop")]
-        [SerializeField] private float shopSpacing = 1.8f;
+        [Tooltip("Espacement entre les tokens du shop (adapté aux tokens compacts ~1.2u)")]
+        [SerializeField] private float shopSpacing = 2.0f;
 
         [Header("Animation")]
         [SerializeField] private float sellAnimDuration = 0.25f;
@@ -99,8 +99,8 @@ namespace AutoBattler.Client.Shop
         {
             get
             {
-                var zone = BoardSurface.Instance?.ShopZone;
-                return zone != null ? zone.position : new Vector3(0f, 0.1f, 5.5f);
+                var surface = BoardSurface.Instance;
+                return surface != null ? surface.GetShopCenter() : new Vector3(0.9f, 0.01f, 5.41f);
             }
         }
 

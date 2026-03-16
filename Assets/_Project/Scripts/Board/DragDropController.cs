@@ -193,9 +193,12 @@ namespace AutoBattler.Client.Board
                 Debug.Log($"[DragDrop] Achat depuis le shop index {_dragShopIndex}");
 
                 var target = _draggedObject;
+                var handCenter = BoardSurface.Instance != null
+                    ? BoardSurface.Instance.GetHandCenter(false)
+                    : new Vector3(0.9f, 0.5f, -2.78f);
                 target.DOKill();
                 DOTween.Sequence()
-                    .Append(target.DOMove(new Vector3(0f, 0.5f, -3.5f), 0.3f).SetEase(Ease.InQuad))
+                    .Append(target.DOMove(handCenter + Vector3.up * 0.5f, 0.3f).SetEase(Ease.InQuad))
                     .Join(target.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack))
                     .OnComplete(() =>
                     {
