@@ -32,18 +32,11 @@ namespace AutoBattler.Client.Board
         [Tooltip("Échelle multiplicateur pendant le drag")]
         [SerializeField] private float dragScale = 1.2f;
 
-        [Header("Zones — seuils Z pour déterminer l'action")]
-        [Tooltip("Seuil Z fixe d'achat (utilisé seulement si dropZoneBoard n'est pas assigné)")]
-        [SerializeField] private float shopBuyThresholdZFallback = 4f;
-
-        [Tooltip("Seuil Z fixe de vente (utilisé seulement si dropZoneSell n'est pas assigné)")]
-        [SerializeField] private float sellThresholdZFallback = 4f;
-
-        [Header("Drop Zone Indicators")]
-        [Tooltip("Indicateur visuel de la zone board (affiché pendant le drag)")]
-        [SerializeField] private GameObject dropZoneBoard;
-        [Tooltip("Indicateur visuel de la zone de vente (affiché pendant le drag)")]
-        [SerializeField] private GameObject dropZoneSell;
+        [Header("Drop Zones (Quads transparents, positionnables dans l'éditeur)")]
+        [Tooltip("Zone de drop pour poser un minion sur le board")]
+        [SerializeField] private AutoBattler.Client.UI.DropZone dropZoneBoard;
+        [Tooltip("Zone de drop pour vendre un minion (zone shop)")]
+        [SerializeField] private AutoBattler.Client.UI.DropZone dropZoneSell;
 
         [Header("Animation")]
         [SerializeField] private float pickupDuration = 0.15f;
@@ -70,40 +63,6 @@ namespace AutoBattler.Client.Board
         private int _dragShopIndex;
         private Plane _dragPlane;
         private Dictionary<SpriteRenderer, int> _savedSortingOrders = new Dictionary<SpriteRenderer, int>();
-        private const float UnityPlaneSize = 10f;
-
-        /// <summary>
-        /// Seuil Z d'achat calculé depuis le bord haut de la drop zone board.
-        /// Drop au-dessus de ce seuil depuis le shop = pas d'achat.
-        /// Drop en-dessous = achat.
-        /// </summary>
-        private float ShopBuyThresholdZ
-        {
-            get
-            {
-                if (dropZoneBoard == null) return shopBuyThresholdZFallback;
-                var t = dropZoneBoard.transform;
-                float halfDepth = UnityPlaneSize * t.lossyScale.z / 2f;
-                return t.position.z + halfDepth;
-            }
-        }
-
-        /// <summary>
-        /// Seuil Z de vente calculé dynamiquement depuis le bord bas de la drop zone sell.
-        /// Si la drop zone n'est pas assignée, utilise le fallback.
-        /// </summary>
-        private float SellThresholdZ
-        {
-            get
-            {
-                if (dropZoneSell == null) return sellThresholdZFallback;
-                // Un Plane Unity fait 10 unités de base. Scale Z = profondeur / 10.
-                // Le bord bas = position.z - (10 * scaleZ / 2)
-                var t = dropZoneSell.transform;
-                float halfDepth = UnityPlaneSize * t.lossyScale.z / 2f;
-                return t.position.z - halfDepth;
-            }
-        }
 
         private void Start()
         {
@@ -242,7 +201,8 @@ namespace AutoBattler.Client.Board
         /// </summary>
         private void HandleShopDrop(Vector3 dropPos)
         {
-            if (dropPos.z < ShopBuyThresholdZ &&
+            bool inBoardZone = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
+            if (inBoardZone &&
                 ShopManager.Instance != null &&
                 ShopManager.Instance.BuyCard(_dragShopIndex))
             {
@@ -284,7 +244,8 @@ namespace AutoBattler.Client.Board
                 return;
             }
 
-            if (boardManager != null && boardManager.IsInBoardZone(dropPos))
+            bool inBoardZone = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
+            if (inBoardZone && boardManager != null)
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
@@ -293,7 +254,6 @@ namespace AutoBattler.Client.Board
                 Debug.Log($"[DragDrop] Jouer {instanceId} au slot {slotIndex}");
 
                 // Animer la carte vers le board puis la désactiver
-                // (le serveur enverra OnBoardUpdated qui créera le token sur le board)
                 var target = _draggedObject;
                 var boardCenter = boardManager.PlayerBoardCenter;
                 target.DOKill();
@@ -325,9 +285,9 @@ namespace AutoBattler.Client.Board
                 return;
             }
 
-            // Vente si drop au-dessus du seuil
-            float sellZ = SellThresholdZ;
-            if (dropPos.z > sellZ)
+            // Vente si drop dans la zone sell
+            bool inSellZone = dropZoneSell != null && dropZoneSell.Contains(dropPos);
+            if (inSellZone)
             {
                 string instanceId = _draggedDraggable.MinionInstanceId;
                 ShopManager.Instance?.SellCard(instanceId);
@@ -349,7 +309,8 @@ namespace AutoBattler.Client.Board
             }
 
             // Réorganisation sur le board
-            if (boardManager != null && boardManager.IsInBoardZone(dropPos))
+            bool inBoard = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
+            if (inBoard && boardManager != null)
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
@@ -400,8 +361,8 @@ namespace AutoBattler.Client.Board
 
         private void SetDropZonesVisible(bool visible)
         {
-            if (dropZoneBoard != null) dropZoneBoard.SetActive(visible);
-            if (dropZoneSell != null) dropZoneSell.SetActive(visible);
+            if (dropZoneBoard != null) dropZoneBoard.SetVisible(visible);
+            if (dropZoneSell != null) dropZoneSell.SetVisible(visible);
         }
 
         /// <summary>
