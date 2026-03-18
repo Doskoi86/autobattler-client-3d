@@ -257,63 +257,90 @@ namespace AutoBattler.Client.Shop
 
         private void RefreshShopVisuals(List<ShopOfferState> offers)
         {
-            foreach (var token in _shopTokens)
-            {
-                if (token != null)
-                {
-                    _shopTokenMap.Remove(token.Data?.InstanceId ?? "");
-                    token.gameObject.SetActive(false);
-                }
-            }
-            _shopTokens.Clear();
-
             if (CardFactory.Instance == null) return;
 
             var center = ShopCenter;
             float totalWidth = (offers.Count - 1) * shopSpacing;
             float startX = center.x - totalWidth / 2f;
 
+            // Identifier les tokens existants par InstanceId
+            var existingIds = new HashSet<string>(offers.ConvertAll(o => o.InstanceId));
+
+            // Retirer les tokens qui ne sont plus dans les offres
+            var toRemove = new List<string>();
+            foreach (var kvp in _shopTokenMap)
+            {
+                if (!existingIds.Contains(kvp.Key))
+                {
+                    if (kvp.Value != null)
+                        kvp.Value.gameObject.SetActive(false);
+                    toRemove.Add(kvp.Key);
+                }
+            }
+            foreach (var id in toRemove)
+                _shopTokenMap.Remove(id);
+
+            // Reconstruire la liste ordonnée
+            _shopTokens.Clear();
+
             for (int i = 0; i < offers.Count; i++)
             {
                 var offer = offers[i];
-                var minionData = new MinionState
-                {
-                    InstanceId = offer.InstanceId,
-                    Name = offer.Name,
-                    Attack = offer.Attack,
-                    Health = offer.Health,
-                    Tier = offer.Tier,
-                    Keywords = offer.Keywords,
-                    Description = offer.Description,
-                    Tribes = offer.Tribes,
-                    IsGolden = false
-                };
-
-                var token = CardFactory.Instance.CreateToken(minionData, showTier: true);
-                if (token == null) continue;
-
                 var targetPos = new Vector3(startX + i * shopSpacing, center.y, center.z);
-                var baseScale = token.transform.localScale;
 
-                token.transform.position = targetPos + Vector3.up * 2f;
-                token.transform.localScale = Vector3.zero;
-                token.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad)
-                    .SetDelay(i * shopStaggerDelay);
-                token.transform.DOScale(baseScale, rerollAnimDuration).SetEase(Ease.OutBack)
-                    .SetDelay(i * shopStaggerDelay);
-
-                token.SetBasePosition(targetPos);
-
-                // Activer et configurer le marqueur shop (déjà sur le prefab, désactivé par défaut)
-                var shopClick = token.gameObject.GetComponent<ShopCardClick>();
-                if (shopClick != null)
+                // Chercher un token existant pour cette offre
+                if (_shopTokenMap.TryGetValue(offer.InstanceId, out var existingToken) && existingToken != null)
                 {
-                    shopClick.enabled = true;
-                    shopClick.Setup(offer.Index, this);
-                }
+                    // Token existant → glisser vers sa nouvelle position
+                    existingToken.transform.DOKill();
+                    existingToken.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad);
+                    existingToken.SetBasePosition(targetPos);
 
-                _shopTokens.Add(token);
-                _shopTokenMap[offer.InstanceId] = token;
+                    // Mettre à jour le ShopCardClick index
+                    var shopClick = existingToken.gameObject.GetComponent<ShopCardClick>();
+                    if (shopClick != null) shopClick.Setup(offer.Index, this);
+
+                    _shopTokens.Add(existingToken);
+                }
+                else
+                {
+                    // Nouveau token → créer avec animation de spawn
+                    var minionData = new MinionState
+                    {
+                        InstanceId = offer.InstanceId,
+                        Name = offer.Name,
+                        Attack = offer.Attack,
+                        Health = offer.Health,
+                        Tier = offer.Tier,
+                        Keywords = offer.Keywords,
+                        Description = offer.Description,
+                        Tribes = offer.Tribes,
+                        IsGolden = false
+                    };
+
+                    var token = CardFactory.Instance.CreateToken(minionData, showTier: true);
+                    if (token == null) continue;
+
+                    var baseScale = token.transform.localScale;
+                    token.transform.position = targetPos + Vector3.up * 2f;
+                    token.transform.localScale = Vector3.zero;
+                    token.transform.DOMove(targetPos, rerollAnimDuration).SetEase(Ease.OutQuad)
+                        .SetDelay(i * shopStaggerDelay);
+                    token.transform.DOScale(baseScale, rerollAnimDuration).SetEase(Ease.OutBack)
+                        .SetDelay(i * shopStaggerDelay);
+
+                    token.SetBasePosition(targetPos);
+
+                    var shopClick = token.gameObject.GetComponent<ShopCardClick>();
+                    if (shopClick != null)
+                    {
+                        shopClick.enabled = true;
+                        shopClick.Setup(offer.Index, this);
+                    }
+
+                    _shopTokens.Add(token);
+                    _shopTokenMap[offer.InstanceId] = token;
+                }
             }
         }
     }
