@@ -138,10 +138,18 @@ namespace AutoBattler.Client.UI
                 SortingLayerHelper.SetSortingLayer(_preview.gameObject, "Tooltip");
             }
 
-            // Positionner à côté du token
+            // Positionner à côté du token (à droite par défaut, à gauche si ça sort de l'écran)
             var tokenPos = token.transform.position;
+            float xOffset = tooltipOffsetX;
+
+            // Vérifier si le tooltip sortirait de l'écran à droite
+            var screenPos = _mainCamera.WorldToViewportPoint(
+                new Vector3(tokenPos.x + tooltipOffsetX, tooltipY, tokenPos.z));
+            if (screenPos.x > 0.85f)
+                xOffset = -tooltipOffsetX;
+
             _preview.transform.position = new Vector3(
-                tokenPos.x + tooltipOffsetX,
+                tokenPos.x + xOffset,
                 tooltipY,
                 tokenPos.z + tooltipOffsetZ
             );

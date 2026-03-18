@@ -255,8 +255,9 @@ namespace AutoBattler.Client.Board
                 return;
             }
 
-            bool inBoardZone = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
-            if (inBoardZone &&
+            // Achat si drop EN DESSOUS de la zone sell (Z plus petit = vers le bas de l'écran)
+            bool belowSellZone = dropZoneSell == null || dropPos.z < dropZoneSell.transform.position.z - dropZoneSell.transform.lossyScale.y * 0.5f;
+            if (belowSellZone &&
                 ShopManager.Instance != null &&
                 ShopManager.Instance.BuyCard(_dragShopIndex))
             {
