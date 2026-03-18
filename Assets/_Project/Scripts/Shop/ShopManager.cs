@@ -236,7 +236,12 @@ namespace AutoBattler.Client.Shop
         {
             OnPhaseInfo?.Invoke(phase, turn, duration);
 
-            if (phase == "Recruiting")
+            if (phase == "Combat" || phase == "Results")
+            {
+                // Cacher les tokens shop pendant le combat
+                HideShopTokens();
+            }
+            else if (phase == "Recruiting")
             {
                 _isFrozen = false;
                 OnFreezeChanged?.Invoke(false);
@@ -244,6 +249,19 @@ namespace AutoBattler.Client.Shop
                 if (_currentTier < 1) _currentTier = 1;
                 OnTierChanged?.Invoke(_currentTier, _upgradeCost);
             }
+        }
+
+        /// <summary>
+        /// Cache tous les tokens visuels du shop (ils seront recréés au prochain OnShopRefreshed).
+        /// </summary>
+        private void HideShopTokens()
+        {
+            foreach (var token in _shopTokens)
+            {
+                if (token != null) token.gameObject.SetActive(false);
+            }
+            _shopTokens.Clear();
+            _shopTokenMap.Clear();
         }
 
         private void HandleError(string message)

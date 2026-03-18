@@ -67,8 +67,13 @@ namespace AutoBattler.Client.Board
 
         private void HandlePhaseStarted(string phase, int turn, int duration)
         {
-            bool combat = phase == "Combat";
-            SetPhase(combat, animate: true);
+            // En combat ET en résultats → garder le layout combat
+            // Revenir en recruit uniquement quand "Recruiting" commence
+            if (phase == "Combat")
+                SetPhase(true, animate: true);
+            else if (phase == "Recruiting")
+                SetPhase(false, animate: true);
+            // "Results" → on reste en mode combat, pas de changement
         }
 
         /// <summary>

@@ -94,6 +94,12 @@ namespace AutoBattler.Client.Cards
         [SerializeField] private float buffPunchScale = 0.4f;
         [SerializeField] private float buffPunchDuration = 0.25f;
 
+        /// <summary>Durée du mouvement vers la cible (pour le séquençage externe).</summary>
+        public float AttackForwardDuration => attackForwardDuration;
+
+        /// <summary>Durée du retour après l'attaque (pour le séquençage externe).</summary>
+        public float AttackReturnDuration => attackReturnDuration;
+
         // État
         private MinionState _data;
         private Vector3 _basePosition;
@@ -244,6 +250,7 @@ namespace AutoBattler.Client.Cards
         private void OnMouseEnter()
         {
             if (!DragEnabled) return;
+            if (AutoBattler.Client.UI.HeroSelectionScreen.IsShowing) return;
             _isHovered = true;
             AnimateHover(true);
         }
@@ -319,6 +326,38 @@ namespace AutoBattler.Client.Cards
                 .AppendCallback(() => UpdateStats(newAttack, newHealth))
                 .Append(attackText.transform.DOPunchScale(Vector3.one * buffPunchScale, buffPunchDuration).SetEase(Ease.OutElastic))
                 .Join(healthText.transform.DOPunchScale(Vector3.one * buffPunchScale, buffPunchDuration).SetEase(Ease.OutElastic));
+        }
+
+        /// <summary>
+        /// Éclate le bouclier divin : la bulle scale up et disparaît.
+        /// Met à jour les keywords pour retirer DivineShield.
+        /// </summary>
+        public Tween AnimateDivineShieldPop()
+        {
+            if (divineShieldBubble == null) return null;
+
+            return DOTween.Sequence()
+                .Append(divineShieldBubble.transform.DOScale(Vector3.one * 1.8f, 0.15f).SetEase(Ease.OutQuad))
+                .Join(DOTween.ToAlpha(
+                    () =>
+                    {
+                        var sr = divineShieldBubble.GetComponent<SpriteRenderer>();
+                        return sr != null ? sr.color : Color.white;
+                    },
+                    c =>
+                    {
+                        var sr = divineShieldBubble.GetComponent<SpriteRenderer>();
+                        if (sr != null) sr.color = c;
+                    },
+                    0f, 0.15f))
+                .OnComplete(() =>
+                {
+                    divineShieldBubble.SetActive(false);
+                    divineShieldBubble.transform.localScale = Vector3.one * 1.2f;
+                    // Restaurer l'alpha pour une réutilisation future
+                    var sr = divineShieldBubble.GetComponent<SpriteRenderer>();
+                    if (sr != null) sr.color = new Color(sr.color.r, sr.color.g, sr.color.b, 1f);
+                });
         }
 
         // =====================================================
