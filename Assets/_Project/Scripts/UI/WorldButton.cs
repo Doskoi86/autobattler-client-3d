@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
 using DG.Tweening;
+using AutoBattler.Client.Combat;
 
 namespace AutoBattler.Client.UI
 {
@@ -79,6 +80,13 @@ namespace AutoBattler.Client.UI
         private void Update()
         {
             if (_mainCamera == null || Mouse.current == null || _collider == null) return;
+
+            // Pas d'interaction quand un overlay bloque l'écran
+            if (HeroSelectionScreen.IsShowing || CombatSequencer.IsPlayingCombat)
+            {
+                if (_isHovered) { _isHovered = false; OnHoverExit(); }
+                return;
+            }
 
             // Hover/click detection par RaycastAll (ignore les objets devant le bouton)
             var ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());

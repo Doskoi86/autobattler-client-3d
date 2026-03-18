@@ -6,6 +6,8 @@ using AutoBattler.Client.Cards;
 using AutoBattler.Client.Shop;
 using AutoBattler.Client.Hand;
 using AutoBattler.Client.Core;
+using AutoBattler.Client.Combat;
+using AutoBattler.Client.UI;
 using AutoBattler.Client.Utils;
 
 namespace AutoBattler.Client.Board
@@ -103,6 +105,10 @@ namespace AutoBattler.Client.Board
         private void CheckForPickup()
         {
             if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
+
+            // Pas de drag pendant le combat ou la sélection de héros
+            if (CombatSequencer.IsPlayingCombat) return;
+            if (HeroSelectionScreen.IsShowing) return;
 
             var ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
             var hits = Physics.RaycastAll(ray, 100f);

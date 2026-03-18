@@ -910,6 +910,19 @@ MonoBehaviour:
   normalGlowColor: {r: 1, g: 1, b: 1, a: 0}
   hoverGlowColor: {r: 1, g: 1, b: 1, a: 0.5}
   goldenGlowColor: {r: 1, g: 0.85, b: 0.2, a: 0.6}
+  buyMoveDuration: 0.4
+  buyScaleDuration: 0.3
+  placeDuration: 0.3
+  placePunchScale: 0.1
+  placePunchDuration: 0.2
+  damageDuration: 0.2
+  damageShakeIntensity: 0.1
+  deathDuration: 0.3
+  deathRotation: 15
+  attackForwardDuration: 0.15
+  attackReturnDuration: 0.2
+  buffPunchScale: 0.4
+  buffPunchDuration: 0.25
 --- !u!65 &1276935358604373557
 BoxCollider:
   m_ObjectHideFlags: 0

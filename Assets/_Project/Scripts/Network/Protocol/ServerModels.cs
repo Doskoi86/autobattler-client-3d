@@ -21,6 +21,8 @@ namespace AutoBattler.Client.Network.Protocol
         public string Id;
         public string Name;
         public string Description;
+        public int HeroPowerCost;        // 0 = gratuit, N = coût en or
+        public string HeroPowerType;     // "PassiveAlways", "ActiveFree", "ActiveCost", "Triggered"
     }
 
     [Serializable]

@@ -40,6 +40,11 @@ namespace AutoBattler.Client.Network
         private List<ShopOfferState> _currentShopOffers = new List<ShopOfferState>();
         private List<PlayerPublicState> _opponents = new List<PlayerPublicState>();
 
+        // Héros sélectionné
+        private HeroOffer _selectedHero;
+        private bool _heroPowerUsedThisTurn;
+        private List<HeroOffer> _lastHeroOffers;
+
         // Données de minions pour la simulation
         private List<MinionTemplate> _minionPool = new List<MinionTemplate>();
 
@@ -70,6 +75,7 @@ namespace AutoBattler.Client.Network
         public event Action<int, int> OnHeroHealthUpdated;
         public event Action<string, string> OnTripleFormed;
         public event Action<List<CombatEventData>, List<BoardSnapshot>, List<BoardSnapshot>> OnCombatReplay;
+        public event Action<int, bool> OnHeroPowerUsed;
         public event Action<string, bool, int, string> OnCombatResult;
         public event Action<int> OnEliminated;
         public event Action<string, int> OnPlayerEliminated;
@@ -146,7 +152,9 @@ namespace AutoBattler.Client.Network
 
         public Task SelectHeroAsync(string heroId)
         {
-            Debug.Log($"[MockServer] Héros sélectionné : {heroId}");
+            // Retrouver l'offre sélectionnée pour stocker les infos du pouvoir
+            _selectedHero = _lastHeroOffers?.Find(h => h.Id == heroId);
+            Debug.Log($"[MockServer] Héros sélectionné : {heroId} ({_selectedHero?.Name})");
 
             StartCoroutine(DelayedAction(0.5f, () =>
             {
@@ -351,6 +359,84 @@ namespace AutoBattler.Client.Network
             return Task.CompletedTask;
         }
 
+        public Task UseHeroPowerAsync()
+        {
+            if (_selectedHero == null)
+            {
+                OnError?.Invoke("Aucun héros sélectionné.");
+                return Task.CompletedTask;
+            }
+
+            if (_heroPowerUsedThisTurn)
+            {
+                OnError?.Invoke("Pouvoir héroïque déjà utilisé ce tour.");
+                return Task.CompletedTask;
+            }
+
+            bool isPassive = _selectedHero.HeroPowerType == "PassiveAlways" || _selectedHero.HeroPowerType == "Triggered";
+            if (isPassive)
+            {
+                OnError?.Invoke("Ce pouvoir est passif.");
+                return Task.CompletedTask;
+            }
+
+            int cost = _selectedHero.HeroPowerCost;
+            if (_currentGold < cost)
+            {
+                OnError?.Invoke("Pas assez d'or pour le pouvoir héroïque.");
+                return Task.CompletedTask;
+            }
+
+            _currentGold -= cost;
+            _heroPowerUsedThisTurn = true;
+
+            // Simuler l'effet selon le héros
+            switch (_selectedHero.Id)
+            {
+                case "hero_warlock":
+                    // Perdez 2 PV, gagnez 1 or
+                    _heroHealth -= 2;
+                    _currentGold += 1;
+                    OnHeroHealthUpdated?.Invoke(_heroHealth, _heroArmor);
+                    break;
+
+                case "hero_paladin":
+                    // +1/+1 à un allié aléatoire
+                    if (_board.Count > 0)
+                    {
+                        var target = _board[UnityEngine.Random.Range(0, _board.Count)];
+                        target.Attack += 1;
+                        target.Health += 1;
+                        OnBoardUpdated?.Invoke(new List<MinionState>(_board));
+                    }
+                    break;
+
+                case "hero_necro":
+                    // Placeholder : on donne juste un minion 1/1
+                    if (_board.Count < 7)
+                    {
+                        _board.Add(new MinionState
+                        {
+                            InstanceId = System.Guid.NewGuid().ToString(),
+                            Name = "Esprit Ressuscité",
+                            Attack = 1, Health = 1, Tier = 1,
+                            Keywords = "", Tribes = "Undead", IsGolden = false
+                        });
+                        OnBoardUpdated?.Invoke(new List<MinionState>(_board));
+                    }
+                    break;
+
+                default:
+                    // Pour les autres héros actifs, effet placeholder
+                    Debug.Log($"[MockServer] Pouvoir {_selectedHero.Name} activé (effet placeholder)");
+                    break;
+            }
+
+            OnHeroPowerUsed?.Invoke(_currentGold, false);
+            Debug.Log($"[MockServer] Pouvoir héroïque utilisé — Or : {_currentGold}");
+            return Task.CompletedTask;
+        }
+
         public Task AnimationDoneAsync()
         {
             Debug.Log("[MockServer] Animations terminées");
@@ -375,12 +461,29 @@ namespace AutoBattler.Client.Network
 
             OnGameFound?.Invoke(_gameId, players);
 
-            // Proposer des héros
-            var heroes = new List<HeroOffer>
+            // Proposer 4 héros parmi les 10 disponibles
+            var allHeroes = new List<HeroOffer>
             {
-                new HeroOffer { Id = "hero_human", Name = "Uther le Champion", Description = "Pouvoir héroïque : Donne +1/+1 à un allié aléatoire." },
-                new HeroOffer { Id = "hero_dragon", Name = "Ysera la Rêveuse", Description = "Pouvoir héroïque : Les Dragons dans le shop coûtent 2 or." }
+                new HeroOffer { Id = "hero_paladin", Name = "Le Paladin", Description = "Donne +1/+1 à un allié aléatoire.", HeroPowerCost = 2, HeroPowerType = "ActiveCost" },
+                new HeroOffer { Id = "hero_ranger", Name = "La Rôdeuse", Description = "Gagne 1 or après chaque victoire au combat.", HeroPowerCost = 0, HeroPowerType = "Triggered" },
+                new HeroOffer { Id = "hero_shaman", Name = "Le Chaman Tauren", Description = "Vos minions adjacents au centre gagnent +1/+1.", HeroPowerCost = 0, HeroPowerType = "PassiveAlways" },
+                new HeroOffer { Id = "hero_warchief", Name = "Le Chef de Guerre", Description = "Quand un allié meurt au combat, un allié aléatoire gagne +1 ATQ.", HeroPowerCost = 0, HeroPowerType = "PassiveAlways" },
+                new HeroOffer { Id = "hero_necro", Name = "Le Nécromancien", Description = "Ressuscite le dernier allié mort au combat.", HeroPowerCost = 1, HeroPowerType = "ActiveCost" },
+                new HeroOffer { Id = "hero_dragon", Name = "Le Seigneur Dragon", Description = "Au début du combat, tous vos Dragons gagnent +1/+1.", HeroPowerCost = 0, HeroPowerType = "PassiveAlways" },
+                new HeroOffer { Id = "hero_warlock", Name = "Le Démoniste", Description = "Perdez 2 PV, gagnez 1 or.", HeroPowerCost = 0, HeroPowerType = "ActiveFree" },
+                new HeroOffer { Id = "hero_illusionist", Name = "L'Illusionniste", Description = "Copie un minion ennemi aléatoire dans votre shop.", HeroPowerCost = 2, HeroPowerType = "ActiveCost" },
+                new HeroOffer { Id = "hero_engineer", Name = "L'Ingénieur", Description = "Vos Mécas gagnent automatiquement des pièces détachées.", HeroPowerCost = 0, HeroPowerType = "PassiveAlways" },
+                new HeroOffer { Id = "hero_beastqueen", Name = "La Reine des Bêtes", Description = "Invoque un jeton Bête 1/1 au début de chaque tour.", HeroPowerCost = 0, HeroPowerType = "PassiveAlways" }
             };
+
+            // Mélanger et prendre 4
+            for (int i = allHeroes.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                (allHeroes[i], allHeroes[j]) = (allHeroes[j], allHeroes[i]);
+            }
+            var heroes = allHeroes.GetRange(0, Mathf.Min(4, allHeroes.Count));
+            _lastHeroOffers = heroes;
 
             OnHeroOffered?.Invoke(heroes);
             Debug.Log($"[MockServer] Partie créée : {_gameId}");
@@ -390,6 +493,7 @@ namespace AutoBattler.Client.Network
         {
             _turnNumber++;
             _currentGold = Mathf.Min(startingGold + _turnNumber - 1, maxGold);
+            _heroPowerUsedThisTurn = false;
 
             // Réduire le coût d'upgrade de 1 par tour (minimum 0)
             _upgradeCost = Mathf.Max(0, _upgradeCost - 1);
@@ -402,6 +506,12 @@ namespace AutoBattler.Client.Network
 
             OnPhaseStarted?.Invoke("Recruiting", _turnNumber, duration);
             OnPlayersUpdated?.Invoke(GetAllPlayersState());
+
+            // Renvoyer l'état du board et de la main pour repositionner les tokens
+            // après le combat (le board n'a pas changé mais la phase a changé → positions différentes)
+            OnBoardUpdated?.Invoke(new List<MinionState>(_board));
+            OnHandUpdated?.Invoke(new List<MinionState>(_hand));
+
             OnShopRefreshed?.Invoke(
                 new List<ShopOfferState>(_currentShopOffers),
                 _currentGold,
@@ -415,7 +525,6 @@ namespace AutoBattler.Client.Network
         {
             OnPhaseStarted?.Invoke("Combat", _turnNumber, 0);
 
-            // Simuler un combat simple
             var opponentBoard = GenerateOpponentBoard();
 
             var playerSnap = _board.Select(m => new BoardSnapshot
@@ -436,29 +545,53 @@ namespace AutoBattler.Client.Network
                 Tier = m.Tier
             }).ToList();
 
-            // Simuler des events de combat basiques
-            var combatEvents = SimulateCombatEvents(playerSnap, opponentSnap);
+            // Simuler le combat avec suivi des PV et morts
+            var combatEvents = SimulateCombatEvents(
+                _board.ToList(), opponentBoard, playerSnap, opponentSnap);
 
-            // Résultat aléatoire pondéré par la force du board
-            int playerPower = _board.Sum(m => m.Attack + m.Health);
-            int opponentPower = opponentBoard.Sum(m => m.Attack + m.Health);
-            bool didWin = playerPower >= opponentPower;
-            int damage = didWin ? 0 : _currentTier + opponentBoard.Sum(m => m.Tier);
+            // Déterminer le résultat à partir de la simulation
+            int playerSurvivors = playerSnap.Count(s =>
+                combatEvents.All(e => !(e.TargetId == s.InstanceId && e.TargetDied) &&
+                                      !(e.AttackerId == s.InstanceId && e.AttackerDied)));
+            int opponentSurvivors = opponentSnap.Count(s =>
+                combatEvents.All(e => !(e.TargetId == s.InstanceId && e.TargetDied) &&
+                                      !(e.AttackerId == s.InstanceId && e.AttackerDied)));
+
+            bool didWin;
+            int damage;
+
+            if (playerSurvivors > 0 && opponentSurvivors == 0)
+            {
+                didWin = true;
+                damage = 0;
+            }
+            else if (opponentSurvivors > 0 && playerSurvivors == 0)
+            {
+                didWin = false;
+                damage = _currentTier + opponentBoard.Sum(m => m.Tier);
+            }
+            else
+            {
+                // Égalité ou les deux ont des survivants (timer)
+                int playerPower = _board.Sum(m => m.Attack + m.Health);
+                int opponentPower = opponentBoard.Sum(m => m.Attack + m.Health);
+                didWin = playerPower >= opponentPower;
+                damage = didWin ? 0 : _currentTier + opponentBoard.Sum(m => m.Tier);
+            }
 
             OnCombatReplay?.Invoke(combatEvents, playerSnap, opponentSnap);
 
-            StartCoroutine(DelayedAction(0.5f, () =>
+            StartCoroutine(DelayedAction(0.3f, () =>
             {
-                if (!didWin)
+                if (!didWin && damage > 0)
                 {
                     _heroHealth -= damage;
                     OnHeroHealthUpdated?.Invoke(_heroHealth, _heroArmor);
                 }
 
                 OnCombatResult?.Invoke("bot_1", didWin, damage,
-                    didWin ? "Victoire !" : $"Défaite ! -{damage} PV");
+                    didWin ? "Victoire !" : (damage == 0 ? "Égalité !" : $"Défaite ! -{damage} PV"));
 
-                // Vérifier élimination
                 if (_heroHealth <= 0)
                 {
                     OnEliminated?.Invoke(2);
@@ -470,9 +603,7 @@ namespace AutoBattler.Client.Network
                     return;
                 }
 
-                // Éliminer des bots aléatoirement pour simuler la progression
                 SimulateOpponentEliminations();
-
                 OnPhaseStarted?.Invoke("Results", _turnNumber, (int)resultsPhaseDuration);
                 Debug.Log($"[MockServer] Combat terminé — {(didWin ? "Victoire" : $"Défaite (-{damage} PV)")} — HP : {_heroHealth}");
             }));
@@ -534,44 +665,127 @@ namespace AutoBattler.Client.Network
             return board;
         }
 
+        /// <summary>
+        /// Simule un combat complet avec suivi des PV, morts, Taunt et DivineShield.
+        /// Produit des events séquentiels qui correspondent à ce qui se passe réellement.
+        /// </summary>
         private List<CombatEventData> SimulateCombatEvents(
-            List<BoardSnapshot> playerBoard, List<BoardSnapshot> opponentBoard)
+            List<MinionState> playerMinions, List<MinionState> opponentMinions,
+            List<BoardSnapshot> playerSnap, List<BoardSnapshot> opponentSnap)
         {
             var events = new List<CombatEventData>();
 
-            // Simuler quelques attaques basiques pour que le client ait quelque chose à animer
-            int rounds = Mathf.Min(playerBoard.Count + opponentBoard.Count, 8);
-            for (int i = 0; i < rounds; i++)
+            // Copies de travail avec PV mutables
+            var pSide = playerSnap.Select(s => new CombatMinion(s,
+                playerMinions.FirstOrDefault(m => m.InstanceId == s.InstanceId)?.Keywords ?? "")).ToList();
+            var oSide = opponentSnap.Select(s => new CombatMinion(s,
+                opponentMinions.FirstOrDefault(m => m.InstanceId == s.InstanceId)?.Keywords ?? "")).ToList();
+
+            bool playerTurn = UnityEngine.Random.value > 0.5f;
+            int pNextAttacker = 0;
+            int oNextAttacker = 0;
+            int maxIterations = 100;
+
+            while (pSide.Count > 0 && oSide.Count > 0 && maxIterations-- > 0)
             {
-                bool playerAttacks = i % 2 == 0;
-                var attackers = playerAttacks ? playerBoard : opponentBoard;
-                var defenders = playerAttacks ? opponentBoard : playerBoard;
+                var attackers = playerTurn ? pSide : oSide;
+                var defenders = playerTurn ? oSide : pSide;
+                int nextIdx = playerTurn ? pNextAttacker : oNextAttacker;
 
                 if (attackers.Count == 0 || defenders.Count == 0) break;
 
-                var attacker = attackers[i % attackers.Count];
-                var defender = defenders[UnityEngine.Random.Range(0, defenders.Count)];
+                // Round-robin attacker
+                nextIdx = nextIdx % attackers.Count;
+                var atk = attackers[nextIdx];
+
+                // Cibler un Taunt en priorité, sinon aléatoire
+                var taunts = defenders.Where(d => d.HasTaunt).ToList();
+                var def = taunts.Count > 0
+                    ? taunts[UnityEngine.Random.Range(0, taunts.Count)]
+                    : defenders[UnityEngine.Random.Range(0, defenders.Count)];
+
+                // Résoudre l'attaque
+                bool defShieldPopped = false;
+                bool atkShieldPopped = false;
+
+                // Dégâts sur le défenseur
+                if (def.HasDivineShield)
+                {
+                    def.HasDivineShield = false;
+                    defShieldPopped = true;
+                }
+                else
+                {
+                    def.Health -= atk.Attack;
+                }
+
+                // Contre-attaque sur l'attaquant
+                if (atk.HasDivineShield)
+                {
+                    atk.HasDivineShield = false;
+                    atkShieldPopped = true;
+                }
+                else
+                {
+                    atk.Health -= def.Attack;
+                }
+
+                bool defDied = def.Health <= 0;
+                bool atkDied = atk.Health <= 0;
 
                 events.Add(new CombatEventData
                 {
                     Type = "Attack",
-                    AttackerId = attacker.InstanceId,
-                    TargetId = defender.InstanceId,
-                    Damage = attacker.Attack,
-                    DivineShieldPopped = false,
-                    TargetDied = defender.Health <= attacker.Attack,
-                    AttackerDied = attacker.Health <= defender.Attack,
-                    AttackerName = attacker.Name,
-                    TargetName = defender.Name,
-                    AttackerAttack = attacker.Attack,
-                    TargetAttack = defender.Attack,
-                    AttackerHealthAfter = Mathf.Max(0, attacker.Health - defender.Attack),
-                    TargetHealthAfter = Mathf.Max(0, defender.Health - attacker.Attack),
+                    AttackerId = atk.Id,
+                    TargetId = def.Id,
+                    Damage = atk.Attack,
+                    DivineShieldPopped = defShieldPopped,
+                    TargetDied = defDied,
+                    AttackerDied = atkDied,
+                    AttackerName = atk.Name,
+                    TargetName = def.Name,
+                    AttackerAttack = atk.Attack,
+                    TargetAttack = def.Attack,
+                    AttackerHealthAfter = Mathf.Max(0, atk.Health),
+                    TargetHealthAfter = Mathf.Max(0, def.Health),
                     TokenName = ""
                 });
+
+                // Retirer les morts
+                if (defDied) defenders.Remove(def);
+                if (atkDied) attackers.Remove(atk);
+
+                // Avancer l'index d'attaque
+                if (playerTurn)
+                    pNextAttacker = atkDied ? nextIdx : nextIdx + 1;
+                else
+                    oNextAttacker = atkDied ? nextIdx : nextIdx + 1;
+
+                playerTurn = !playerTurn;
             }
 
             return events;
+        }
+
+        /// <summary>Minion mutable pour la simulation de combat.</summary>
+        private class CombatMinion
+        {
+            public string Id;
+            public string Name;
+            public int Attack;
+            public int Health;
+            public bool HasDivineShield;
+            public bool HasTaunt;
+
+            public CombatMinion(BoardSnapshot snap, string keywords)
+            {
+                Id = snap.InstanceId;
+                Name = snap.Name;
+                Attack = snap.Attack;
+                Health = snap.Health;
+                HasDivineShield = keywords?.Contains("DivineShield") ?? false;
+                HasTaunt = keywords?.Contains("Taunt") ?? false;
+            }
         }
 
         private void SimulateOpponentEliminations()

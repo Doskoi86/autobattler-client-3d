@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Cards.MinionArtDatabase
   entries:
   - minionName: Recrue Humaine
-    artwork: {fileID: 0}
+    artwork: {fileID: 21300000, guid: 1c01961a1ad75de46978053fdfbd9f69, type: 3}
   - minionName: Louveteau
-    artwork: {fileID: 0}
+    artwork: {fileID: 21300000, guid: 28f62f8afc525324cb380f16c5126697, type: 3}
   - minionName: "M\xE9ca-Assembleur"
     artwork: {fileID: 0}
   - minionName: Diablotin
-    artwork: {fileID: 0}
+    artwork: {fileID: 21300000, guid: f2b33add1c9e38140a42930a1442391b, type: 3}
   - minionName: Dragonnet
-    artwork: {fileID: 0}
+    artwork: {fileID: 21300000, guid: 8a13eddf10513424d8370b452e4d930c, type: 3}
   - minionName: Elfe Archer
-    artwork: {fileID: 0}
+    artwork: {fileID: 21300000, guid: 896bfee1a1f99f34cbc4b4c3cc1f50f6, type: 3}
   - minionName: "Garde Taur\xE8ne"
     artwork: {fileID: 0}
   - minionName: Loup Alpha

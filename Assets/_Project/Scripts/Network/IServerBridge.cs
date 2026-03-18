@@ -39,6 +39,9 @@ namespace AutoBattler.Client.Network
         Task UpgradeTavernAsync();
         Task ReadyForCombatAsync();
 
+        // --- Hero Power ---
+        Task UseHeroPowerAsync();
+
         // --- Résultats ---
         Task AnimationDoneAsync();
 
@@ -69,6 +72,9 @@ namespace AutoBattler.Client.Network
         event Action<List<MinionState>> OnHandUpdated;                      // minions
         event Action<int, int> OnHeroHealthUpdated;                         // health, armor
         event Action<string, string> OnTripleFormed;                        // goldenId, goldenName
+
+        // --- Events : Hero Power ---
+        event Action<int, bool> OnHeroPowerUsed;                                  // gold, canUseAgain
 
         // --- Events : Combat ---
         event Action<List<CombatEventData>, List<BoardSnapshot>, List<BoardSnapshot>> OnCombatReplay;

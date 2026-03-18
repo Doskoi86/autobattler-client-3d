@@ -38,10 +38,7 @@ namespace AutoBattler.Client.Core
                 Debug.Log($"<color=cyan>[Event] Partie trouvée : {gameId}</color>");
 
             server.OnHeroOffered += (offers) =>
-            {
                 Debug.Log($"<color=cyan>[Event] Héros proposés : {offers.Count}</color>");
-                server.SelectHeroAsync(offers[0].Id);
-            };
 
             server.OnAllHeroesSelected += () =>
                 Debug.Log("<color=cyan>[Event] Tous les héros sélectionnés !</color>");
