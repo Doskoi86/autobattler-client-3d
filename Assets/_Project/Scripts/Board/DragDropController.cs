@@ -54,6 +54,7 @@ namespace AutoBattler.Client.Board
         [SerializeField] private int dragSortingOffset = 100;
 
         // État du drag
+        public static bool IsDragging { get; private set; }
         private bool _isDragging;
         private Transform _draggedObject;
         private IDraggable _draggedDraggable;
@@ -123,6 +124,7 @@ namespace AutoBattler.Client.Board
         private void StartDrag(Transform target, IDraggable draggable, DragSource source, int shopIndex)
         {
             _isDragging = true;
+            IsDragging = true;
             _draggedObject = target;
             _draggedDraggable = draggable;
             _dragStartPosition = target.position;
@@ -172,6 +174,7 @@ namespace AutoBattler.Client.Board
         private void EndDrag()
         {
             _isDragging = false;
+            IsDragging = false;
             SetDropZonesVisible(false);
 
             if (_draggedObject == null) return;
@@ -354,6 +357,7 @@ namespace AutoBattler.Client.Board
         private void CancelDrag()
         {
             _isDragging = false;
+            IsDragging = false;
             _dragSource = DragSource.None;
             ClearDragState();
             SetDropZonesVisible(false);
