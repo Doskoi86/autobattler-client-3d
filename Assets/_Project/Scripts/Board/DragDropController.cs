@@ -50,6 +50,10 @@ namespace AutoBattler.Client.Board
 
         private enum DragSource { None, Shop, Hand, Board }
 
+        [Header("Limits")]
+        [SerializeField] private int maxHandSize = 10;
+        [SerializeField] private int maxBoardSize = 7;
+
         [Header("Sorting")]
         [Tooltip("Offset de sorting order appliqué pendant le drag pour passer au-dessus de tout")]
         [SerializeField] private int dragSortingOffset = 100;
@@ -94,32 +98,68 @@ namespace AutoBattler.Client.Board
             if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
 
             var ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+            var hits = Physics.RaycastAll(ray, 100f);
+            if (hits.Length == 0) return;
 
-            if (!Physics.Raycast(ray, out RaycastHit hit, 100f)) return;
+            // Trouver le IDraggable avec le sorting order le plus élevé (visuellement au-dessus)
+            Transform bestTarget = null;
+            IDraggable bestDraggable = null;
+            int bestOrder = int.MinValue;
 
-            // Chercher un IDraggable (token ou carte)
-            var draggable = hit.transform.GetComponent<IDraggable>();
-            if (draggable == null || !draggable.CanDrag) return;
+            foreach (var hit in hits)
+            {
+                var draggable = hit.transform.GetComponent<IDraggable>();
+                if (draggable == null || !draggable.CanDrag) continue;
+
+                // Prendre le sorting order max parmi les renderers de cet objet
+                int maxOrder = GetMaxSortingOrder(hit.transform);
+                if (maxOrder > bestOrder)
+                {
+                    bestOrder = maxOrder;
+                    bestTarget = hit.transform;
+                    bestDraggable = draggable;
+                }
+            }
+
+            if (bestTarget == null || bestDraggable == null) return;
 
             // Déterminer la source
-            var shopClick = hit.transform.GetComponent<ShopCardClick>();
+            var shopClick = bestTarget.GetComponent<ShopCardClick>();
             if (shopClick != null && shopClick.enabled)
             {
-                StartDrag(hit.transform, draggable, DragSource.Shop, shopClick.ShopIndex);
+                StartDrag(bestTarget, bestDraggable, DragSource.Shop, shopClick.ShopIndex);
                 return;
             }
 
-            // Vérifier si c'est une carte en main
-            var cardVisual = hit.transform.GetComponent<CardVisual>();
+            var cardVisual = bestTarget.GetComponent<CardVisual>();
             if (cardVisual != null && HandManager.Instance != null &&
                 HandManager.Instance.GetCard(cardVisual.MinionInstanceId) != null)
             {
-                StartDrag(hit.transform, draggable, DragSource.Hand, -1);
+                // Remettre la carte à son état normal avant de sauvegarder le drag state
+                HandManager.Instance.ForceUnhover();
+                StartDrag(bestTarget, bestDraggable, DragSource.Hand, -1);
                 return;
             }
 
-            // Sinon c'est un token sur le board
-            StartDrag(hit.transform, draggable, DragSource.Board, -1);
+            StartDrag(bestTarget, bestDraggable, DragSource.Board, -1);
+        }
+
+        /// <summary>
+        /// Retourne le sorting order le plus élevé parmi les renderers d'un objet.
+        /// Utilisé pour déterminer quel objet est visuellement "au-dessus".
+        /// </summary>
+        private int GetMaxSortingOrder(Transform target)
+        {
+            int max = int.MinValue;
+            var renderers = target.GetComponentsInChildren<Renderer>(true);
+            foreach (var r in renderers)
+            {
+                // Convertir le sorting layer en poids : chaque layer vaut 10000 ordres
+                int layerWeight = SortingLayer.GetLayerValueFromID(r.sortingLayerID) * 10000;
+                int total = layerWeight + r.sortingOrder;
+                if (total > max) max = total;
+            }
+            return max;
         }
 
         private void StartDrag(Transform target, IDraggable draggable, DragSource source, int shopIndex)
@@ -205,6 +245,16 @@ namespace AutoBattler.Client.Board
         /// </summary>
         private void HandleShopDrop(Vector3 dropPos)
         {
+            // Vérifier la limite de main
+            int handCount = HandManager.Instance != null ? HandManager.Instance.HandCards.Count : 0;
+            if (handCount >= maxHandSize)
+            {
+                Debug.Log($"[DragDrop] Main pleine ({handCount}/{maxHandSize}) !");
+                ReturnToStart();
+                ClearDragState();
+                return;
+            }
+
             bool inBoardZone = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
             if (inBoardZone &&
                 ShopManager.Instance != null &&
@@ -243,6 +293,15 @@ namespace AutoBattler.Client.Board
         {
             if (_draggedDraggable == null)
             {
+                ReturnToStart();
+                ClearDragState();
+                return;
+            }
+
+            // Vérifier la limite du board
+            if (boardManager != null && boardManager.PlayerMinionCount >= maxBoardSize)
+            {
+                Debug.Log($"[DragDrop] Board plein ({boardManager.PlayerMinionCount}/{maxBoardSize}) !");
                 ReturnToStart();
                 ClearDragState();
                 return;

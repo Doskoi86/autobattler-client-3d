@@ -20,6 +20,8 @@ namespace AutoBattler.Client.Cards
         [SerializeField] private float cardScale = 0.85f;
         [SerializeField] private float tokenScale = 1f;
 
+        public float CardScale => cardScale;
+
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }

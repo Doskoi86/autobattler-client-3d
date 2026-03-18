@@ -109,6 +109,7 @@ namespace AutoBattler.Client.Cards
         // État
         private MinionState _data;
         private Vector3 _basePosition;
+        public Vector3 BasePosition => _basePosition;
         private Vector3 _baseScale;
         private bool _isHovered;
         private bool _isDragging;
