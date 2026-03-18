@@ -201,23 +201,31 @@ namespace AutoBattler.Client.Board
             _dragShopIndex = shopIndex;
 
             // Annuler toute animation en cours et sauvegarder la position/scale de BASE
-            // (pas le scale actuel qui peut être en cours d'animation)
+            // (pas les valeurs actuelles qui peuvent être en cours d'animation)
             _draggedObject.DOKill();
-            _dragStartPosition = target.position;
 
-            // Utiliser le scale de base du token/carte, pas le scale animé
+            // Utiliser la position et le scale de base, pas les valeurs animées
             if (source == DragSource.Board || source == DragSource.Shop)
             {
                 var tokenVisual = target.GetComponent<MinionTokenVisual>();
-                _dragStartScale = tokenVisual != null
-                    ? Vector3.one * CardFactory.Instance.TokenScale
-                    : target.localScale;
+                if (tokenVisual != null)
+                {
+                    _dragStartPosition = tokenVisual.BasePosition;
+                    _dragStartScale = Vector3.one * CardFactory.Instance.TokenScale;
+                }
+                else
+                {
+                    _dragStartPosition = target.position;
+                    _dragStartScale = target.localScale;
+                }
             }
             else
             {
+                _dragStartPosition = target.position;
                 _dragStartScale = target.localScale;
             }
 
+            _draggedObject.position = _dragStartPosition;
             _draggedObject.localScale = _dragStartScale;
             _draggedObject.DOScale(_dragStartScale * dragScale, pickupDuration)
                 .SetEase(Ease.OutBack);
