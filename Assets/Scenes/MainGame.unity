@@ -582,6 +582,8 @@ MonoBehaviour:
   buyAnimLift: 0.5
   sellAnimDuration: 0.25
   dragLiftOffset: 0.15
+  maxHandSize: 10
+  maxBoardSize: 7
   dragSortingOffset: 100
 --- !u!4 &317567851
 Transform:
@@ -1065,6 +1067,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Cards.CardFactory
   cardPrefab: {fileID: 4501158238450805939, guid: 4aecd4a9dc4997f44abca1335ba47067, type: 3}
   tokenPrefab: {fileID: 3287625862985004264, guid: e353895dba497dd4f9619f128d2733cc, type: 3}
+  minionArtDatabase: {fileID: 11400000, guid: 8fab1a7fcc2281c41b263096909f72c2, type: 2}
   cardScale: 1
   tokenScale: 1
 --- !u!4 &650099225
@@ -2193,7 +2196,7 @@ Transform:
   m_GameObject: {fileID: 1113206879}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.1, z: -2.78}
+  m_LocalPosition: {x: 0, y: 0.1, z: -5.16}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2931,9 +2934,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e463154f03bcc346a7a284de1e1cfb5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Hand.HandManager
-  handSpacing: 1.1
+  handSpacing: 2
   repositionDuration: 0.3
   repositionEase: 6
+  sortingOrderStep: 15
+  hoverLiftZ: 2
+  hoverScale: 1.3
+  hoverDuration: 0.15
+  hoverSortingBoost: 100
+  fanMaxRotation: 8
+  fanMinCards: 4
+  fanArcHeight: 0.5
+  arcMinCards: 5
+  minHandSpacing: 0.8
+  maxHandCards: 10
+  hoverOuterMargin: 1.6
+  hoverZoneTolerance: 3
 --- !u!4 &1457520334
 Transform:
   m_ObjectHideFlags: 0
@@ -3405,8 +3421,8 @@ Transform:
   m_GameObject: {fileID: 2017699932}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0.05, z: 4.4554}
-  m_LocalScale: {x: 21.5, y: 3, z: 1}
+  m_LocalPosition: {x: 0, y: 0.05, z: 4.1171}
+  m_LocalScale: {x: 21.5, y: 3.6764998, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -3553,8 +3569,8 @@ Transform:
   m_GameObject: {fileID: 2124338417}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -0.0006, y: 0.05, z: -1.8727}
-  m_LocalScale: {x: 24.729288, y: 8.054593, z: 1}
+  m_LocalPosition: {x: -0.0006, y: 0.05, z: 0.1684}
+  m_LocalScale: {x: 24.729288, y: 3.9725254, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -3621,8 +3637,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Network.MockServerBridge
   shopPhaseDuration: 45
   resultsPhaseDuration: 5
-  startingGold: 10
-  maxGold: 10
+  startingGold: 80
+  maxGold: 100
   minionDataJson: {fileID: 4900000, guid: f3b2622eaa0a1b04e9601b4da5ec5533, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

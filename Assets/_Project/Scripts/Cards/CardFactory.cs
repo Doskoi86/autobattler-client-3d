@@ -16,11 +16,16 @@ namespace AutoBattler.Client.Cards
         [SerializeField] private GameObject cardPrefab;
         [SerializeField] private GameObject tokenPrefab;
 
+        [Header("Art")]
+        [Tooltip("Base de données des artworks par minion")]
+        [SerializeField] private MinionArtDatabase minionArtDatabase;
+
         [Header("Scale")]
         [SerializeField] private float cardScale = 0.85f;
         [SerializeField] private float tokenScale = 1f;
 
         public float CardScale => cardScale;
+        public MinionArtDatabase MinionArtDb => minionArtDatabase;
 
         private void Awake()
         {
@@ -51,6 +56,8 @@ namespace AutoBattler.Client.Cards
             }
 
             visual.SetData(data);
+            if (minionArtDatabase != null)
+                visual.SetArtwork(minionArtDatabase.GetArtwork(data.Name));
             SortingLayerHelper.SetSortingLayer(card, sortingLayer);
             return visual;
         }
@@ -78,6 +85,8 @@ namespace AutoBattler.Client.Cards
             }
 
             visual.Init(data, showTier);
+            if (minionArtDatabase != null)
+                visual.SetArtwork(minionArtDatabase.GetArtwork(data.Name));
             SortingLayerHelper.SetSortingLayer(token, sortingLayer);
             return visual;
         }

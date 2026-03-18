@@ -134,6 +134,8 @@ namespace AutoBattler.Client.UI
             else
             {
                 _preview.SetData(token.Data);
+                if (CardFactory.Instance?.MinionArtDb != null)
+                    _preview.SetArtwork(CardFactory.Instance.MinionArtDb.GetArtwork(token.Data.Name));
                 _preview.gameObject.SetActive(true);
                 SortingLayerHelper.SetSortingLayer(_preview.gameObject, "Tooltip");
             }

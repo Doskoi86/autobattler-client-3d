@@ -130,6 +130,19 @@ namespace AutoBattler.Client.Cards
         }
 
         // =====================================================
+        // ARTWORK
+        // =====================================================
+
+        /// <summary>
+        /// Assigne le sprite d'artwork du minion.
+        /// </summary>
+        public void SetArtwork(Sprite artwork)
+        {
+            if (artRenderer != null && artwork != null)
+                artRenderer.sprite = artwork;
+        }
+
+        // =====================================================
         // DONNÉES
         // =====================================================
 

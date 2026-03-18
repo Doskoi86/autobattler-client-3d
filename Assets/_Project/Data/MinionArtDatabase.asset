@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7769696817294c945a4a484a51d2b0fd, type: 3}
+  m_Name: MinionArtDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::AutoBattler.Client.Cards.MinionArtDatabase
+  entries:
+  - minionName: Recrue Humaine
+    artwork: {fileID: 0}
+  - minionName: Louveteau
+    artwork: {fileID: 0}
+  - minionName: "M\xE9ca-Assembleur"
+    artwork: {fileID: 0}
+  - minionName: Diablotin
+    artwork: {fileID: 0}
+  - minionName: Dragonnet
+    artwork: {fileID: 0}
+  - minionName: Elfe Archer
+    artwork: {fileID: 0}
+  - minionName: "Garde Taur\xE8ne"
+    artwork: {fileID: 0}
+  - minionName: Loup Alpha
+    artwork: {fileID: 0}
+  - minionName: "M\xE9ca-Blind\xE9"
+    artwork: {fileID: 0}
+  - minionName: "N\xE9cro-Servant"
+    artwork: {fileID: 0}
+  - minionName: "F\xE9e Soigneuse"
+    artwork: {fileID: 0}
+  - minionName: Champion Orc
+    artwork: {fileID: 0}
+  - minionName: Dragon de Bronze
+    artwork: {fileID: 0}
+  - minionName: Golem de Fer
+    artwork: {fileID: 0}
+  - minionName: "D\xE9mon Vorace"
+    artwork: {fileID: 0}
+  - minionName: Esprit Sylvestre
+    artwork: {fileID: 0}
+  - minionName: Seigneur de Guerre
+    artwork: {fileID: 0}
+  - minionName: Hydre Sauvage
+    artwork: {fileID: 0}
+  - minionName: "M\xE9cageant"
+    artwork: {fileID: 0}
+  - minionName: Liche Mineure
+    artwork: {fileID: 0}
+  - minionName: Roi Dragon
+    artwork: {fileID: 0}
+  - minionName: Berserker Orc
+    artwork: {fileID: 0}
+  - minionName: "Archi-F\xE9e"
+    artwork: {fileID: 0}
+  - minionName: Aspect Draconique
+    artwork: {fileID: 0}
+  - minionName: "Titan M\xE9canique"
+    artwork: {fileID: 0}
+  - minionName: "Archid\xE9mon"
+    artwork: {fileID: 0}
+  defaultArtwork: {fileID: 21300000, guid: 8a13eddf10513424d8370b452e4d930c, type: 3}
