@@ -24,10 +24,17 @@ namespace AutoBattler.Client.UI
         [SerializeField] private WorldButton readyButton;
 
         [Header("Info Displays")]
-        [Tooltip("TextMeshPro 3D pour afficher l'or (optionnel, dans le monde)")]
         [SerializeField] private TextMeshPro goldDisplay;
-        [Tooltip("TextMeshPro 3D pour afficher le tier (optionnel, dans le monde)")]
         [SerializeField] private TextMeshPro tierDisplay;
+
+        [Header("Timer")]
+        [Tooltip("Seuil en secondes pour passer le texte en rouge (urgence)")]
+        [SerializeField] private int urgencyThreshold = 10;
+
+        // Timer state
+        private float _timerRemaining;
+        private bool _timerActive;
+        private bool _isReady;
 
         private void Start()
         {
@@ -66,6 +73,34 @@ namespace AutoBattler.Client.UI
             }
         }
 
+        private void Update()
+        {
+            if (!_timerActive || readyButton == null) return;
+
+            _timerRemaining -= Time.deltaTime;
+            if (_timerRemaining <= 0f)
+            {
+                _timerRemaining = 0f;
+                _timerActive = false;
+            }
+
+            UpdateTimerLabel();
+        }
+
+        private void UpdateTimerLabel()
+        {
+            if (readyButton == null) return;
+
+            if (_isReady)
+            {
+                readyButton.Label = "Prêt !";
+                return;
+            }
+
+            int seconds = Mathf.CeilToInt(_timerRemaining);
+            readyButton.Label = $"{seconds}s";
+        }
+
         // =====================================================
         // ACTIONS
         // =====================================================
@@ -73,7 +108,12 @@ namespace AutoBattler.Client.UI
         private void OnRefreshClick() => ShopManager.Instance?.Reroll();
         private void OnFreezeClick() => ShopManager.Instance?.ToggleFreeze();
         private void OnUpgradeClick() => ShopManager.Instance?.UpgradeTavern();
-        private void OnReadyClick() => ShopManager.Instance?.ReadyForCombat();
+        private void OnReadyClick()
+        {
+            ShopManager.Instance?.ReadyForCombat();
+            _isReady = true;
+            UpdateTimerLabel();
+        }
 
         // =====================================================
         // MISES À JOUR VISUELLES
@@ -114,8 +154,17 @@ namespace AutoBattler.Client.UI
             bool isRecruiting = phase == "Recruiting";
             SetButtonsVisible(isRecruiting);
 
-            if (readyButton != null && isRecruiting)
-                readyButton.Label = $"{duration}s";
+            if (isRecruiting && duration > 0)
+            {
+                _timerRemaining = duration;
+                _timerActive = true;
+                _isReady = false;
+                UpdateTimerLabel();
+            }
+            else
+            {
+                _timerActive = false;
+            }
         }
 
         private void SetButtonsVisible(bool visible)
