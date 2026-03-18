@@ -45,6 +45,9 @@ namespace AutoBattler.Client.UI
                 ShopManager.Instance.OnFreezeChanged += UpdateFreezeDisplay;
                 ShopManager.Instance.OnPhaseInfo += UpdatePhaseDisplay;
             }
+
+            // Tout masqué au démarrage — les boutons apparaissent quand la phase Recruiting commence
+            SetButtonsVisible(false);
         }
 
         private void OnDestroy()
@@ -109,18 +112,18 @@ namespace AutoBattler.Client.UI
         private void UpdatePhaseDisplay(string phase, int turn, int duration)
         {
             bool isRecruiting = phase == "Recruiting";
+            SetButtonsVisible(isRecruiting);
 
-            // Afficher/masquer les boutons selon la phase
-            if (refreshButton != null) refreshButton.gameObject.SetActive(isRecruiting);
-            if (freezeButton != null) freezeButton.gameObject.SetActive(isRecruiting);
-            if (upgradeButton != null) upgradeButton.gameObject.SetActive(isRecruiting);
+            if (readyButton != null && isRecruiting)
+                readyButton.Label = $"{duration}s";
+        }
 
-            if (readyButton != null)
-            {
-                readyButton.gameObject.SetActive(isRecruiting);
-                if (isRecruiting)
-                    readyButton.Label = $"{duration}s";
-            }
+        private void SetButtonsVisible(bool visible)
+        {
+            if (refreshButton != null) refreshButton.gameObject.SetActive(visible);
+            if (freezeButton != null) freezeButton.gameObject.SetActive(visible);
+            if (upgradeButton != null) upgradeButton.gameObject.SetActive(visible);
+            if (readyButton != null) readyButton.gameObject.SetActive(visible);
         }
     }
 }

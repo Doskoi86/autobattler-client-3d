@@ -296,7 +296,11 @@ namespace AutoBattler.Client.Network
             }
 
             _currentGold -= 1;
-            _shopFrozen = false;
+            if (_shopFrozen)
+            {
+                _shopFrozen = false;
+                OnShopFrozen?.Invoke();
+            }
             GenerateShopOffers();
 
             OnShopRefreshed?.Invoke(

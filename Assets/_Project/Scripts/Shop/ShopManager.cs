@@ -224,7 +224,8 @@ namespace AutoBattler.Client.Shop
             {
                 if (token == null) continue;
                 token.SetFrozen(_isFrozen);
-                if (_isFrozen)
+                // Punch seulement si le token est déjà à sa taille finale (pas en cours de spawn)
+                if (_isFrozen && token.transform.localScale.sqrMagnitude > 0.5f)
                     token.transform.DOPunchScale(Vector3.one * freezePunchScale, freezePunchDuration);
             }
 
