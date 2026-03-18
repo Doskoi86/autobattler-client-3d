@@ -1,31 +1,23 @@
 using UnityEngine;
 using AutoBattler.Client.Network.Protocol;
+using AutoBattler.Client.Utils;
 
 namespace AutoBattler.Client.Cards
 {
     /// <summary>
     /// Fabrique de cartes et tokens. Instancie les prefabs et initialise les données.
-    ///
-    /// 📋 DANS UNITY EDITOR :
-    /// 1. Sélectionner le GameObject "CardFactory" dans la Hierarchy
-    /// 2. Glisser le prefab Card depuis Assets/_Project/Prefabs/ vers "Card Prefab"
-    /// 3. Glisser le prefab MinionToken depuis Assets/_Project/Prefabs/ vers "Token Prefab"
+    /// Assigne automatiquement le Sorting Layer selon le contexte.
     /// </summary>
     public class CardFactory : MonoBehaviour
     {
         public static CardFactory Instance { get; private set; }
 
         [Header("Prefabs")]
-        [Tooltip("Prefab de carte complète (pour la main du joueur)")]
         [SerializeField] private GameObject cardPrefab;
-
-        [Tooltip("Prefab de token compact (pour le shop et le board)")]
         [SerializeField] private GameObject tokenPrefab;
 
-        [Tooltip("Scale de la carte en main à l'instanciation")]
+        [Header("Scale")]
         [SerializeField] private float cardScale = 0.85f;
-
-        [Tooltip("Scale du token à l'instanciation (ajuster si les sprites sont trop petits/grands)")]
         [SerializeField] private float tokenScale = 1f;
 
         private void Awake()
@@ -35,9 +27,9 @@ namespace AutoBattler.Client.Cards
         }
 
         /// <summary>
-        /// Instancie une carte complète (pour la main du joueur).
+        /// Instancie une carte complète (main du joueur).
         /// </summary>
-        public CardVisual CreateCard(MinionState data)
+        public CardVisual CreateCard(MinionState data, string sortingLayer = "Hand")
         {
             if (cardPrefab == null)
             {
@@ -57,13 +49,14 @@ namespace AutoBattler.Client.Cards
             }
 
             visual.SetData(data);
+            SortingLayerHelper.SetSortingLayer(card, sortingLayer);
             return visual;
         }
 
         /// <summary>
-        /// Instancie un token compact (pour le shop et le board).
+        /// Instancie un token compact (shop ou board).
         /// </summary>
-        public MinionTokenVisual CreateToken(MinionState data, bool showTier = true)
+        public MinionTokenVisual CreateToken(MinionState data, bool showTier = true, string sortingLayer = "Shop")
         {
             if (tokenPrefab == null)
             {
@@ -83,6 +76,7 @@ namespace AutoBattler.Client.Cards
             }
 
             visual.Init(data, showTier);
+            SortingLayerHelper.SetSortingLayer(token, sortingLayer);
             return visual;
         }
     }

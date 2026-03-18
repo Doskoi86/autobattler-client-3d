@@ -126,7 +126,7 @@ namespace AutoBattler.Client.Board
                 if (!_playerTokens.TryGetValue(minionState.InstanceId, out var token) || token == null)
                 {
                     // Créer un nouveau token
-                    token = CardFactory.Instance?.CreateToken(minionState, showTier: false);
+                    token = CardFactory.Instance?.CreateToken(minionState, showTier: false, sortingLayer: "Board");
                     if (token == null) continue;
 
                     token.transform.position = targetPos;

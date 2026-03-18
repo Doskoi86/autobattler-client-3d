@@ -4,6 +4,7 @@ using DG.Tweening;
 using AutoBattler.Client.Cards;
 using AutoBattler.Client.Board;
 using AutoBattler.Client.Core;
+using AutoBattler.Client.Utils;
 
 namespace AutoBattler.Client.UI
 {
@@ -126,7 +127,7 @@ namespace AutoBattler.Client.UI
             if (_preview == null)
             {
                 if (CardFactory.Instance == null) return;
-                _preview = CardFactory.Instance.CreateCard(token.Data);
+                _preview = CardFactory.Instance.CreateCard(token.Data, sortingLayer: "Tooltip");
                 if (_preview == null) return;
                 _preview.DragEnabled = false;
             }
@@ -134,6 +135,7 @@ namespace AutoBattler.Client.UI
             {
                 _preview.SetData(token.Data);
                 _preview.gameObject.SetActive(true);
+                SortingLayerHelper.SetSortingLayer(_preview.gameObject, "Tooltip");
             }
 
             // Positionner à côté du token

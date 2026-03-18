@@ -3288,6 +3288,10 @@ MonoBehaviour:
   tooltipOffsetZ: 0
   tooltipScale: 0.6
   tooltipY: 0.3
+  showDelay: 0.25
+  fadeInDuration: 0.15
+  fadeOutDuration: 0.1
+  postDragCooldown: 0.5
 --- !u!4 &1993428515
 Transform:
   m_ObjectHideFlags: 0
@@ -3549,8 +3553,8 @@ Transform:
   m_GameObject: {fileID: 2124338417}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0.05, z: -1.8727}
-  m_LocalScale: {x: 21.5, y: 8.054593, z: 1}
+  m_LocalPosition: {x: -0.0006, y: 0.05, z: -1.8727}
+  m_LocalScale: {x: 24.729288, y: 8.054593, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}

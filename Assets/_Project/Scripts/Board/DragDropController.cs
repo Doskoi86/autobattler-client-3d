@@ -6,6 +6,7 @@ using AutoBattler.Client.Cards;
 using AutoBattler.Client.Shop;
 using AutoBattler.Client.Hand;
 using AutoBattler.Client.Core;
+using AutoBattler.Client.Utils;
 
 namespace AutoBattler.Client.Board
 {
@@ -370,7 +371,8 @@ namespace AutoBattler.Client.Board
         }
 
         /// <summary>
-        /// Monte tous les SpriteRenderers de l'objet draggé au-dessus de tout.
+        /// Passe l'objet draggé dans le Sorting Layer "Drag" (au-dessus de tout).
+        /// Sauvegarde le layer original pour le restaurer au drop.
         /// </summary>
         private void RaiseSortingOrder(Transform target)
         {
@@ -379,15 +381,26 @@ namespace AutoBattler.Client.Board
             foreach (var sr in renderers)
             {
                 _savedSortingOrders[sr] = sr.sortingOrder;
-                sr.sortingOrder += dragSortingOffset;
             }
+            SortingLayerHelper.SetSortingLayer(target.gameObject, "Drag");
         }
 
         /// <summary>
-        /// Restaure les sorting orders originaux.
+        /// Restaure le Sorting Layer et les sorting orders originaux.
         /// </summary>
         private void RestoreSortingOrder(Transform target)
         {
+            // Déterminer le layer original selon la source du drag
+            string originalLayer = _dragSource switch
+            {
+                DragSource.Shop => "Shop",
+                DragSource.Hand => "Hand",
+                DragSource.Board => "Board",
+                _ => "Default"
+            };
+            SortingLayerHelper.SetSortingLayer(target.gameObject, originalLayer);
+
+            // Restaurer les sorting orders individuels
             foreach (var kvp in _savedSortingOrders)
             {
                 if (kvp.Key != null)
