@@ -197,12 +197,28 @@ namespace AutoBattler.Client.Board
             IsDragging = true;
             _draggedObject = target;
             _draggedDraggable = draggable;
-            _dragStartPosition = target.position;
-            _dragStartScale = target.localScale;
             _dragSource = source;
             _dragShopIndex = shopIndex;
 
+            // Annuler toute animation en cours et sauvegarder la position/scale de BASE
+            // (pas le scale actuel qui peut être en cours d'animation)
             _draggedObject.DOKill();
+            _dragStartPosition = target.position;
+
+            // Utiliser le scale de base du token/carte, pas le scale animé
+            if (source == DragSource.Board || source == DragSource.Shop)
+            {
+                var tokenVisual = target.GetComponent<MinionTokenVisual>();
+                _dragStartScale = tokenVisual != null
+                    ? Vector3.one * CardFactory.Instance.TokenScale
+                    : target.localScale;
+            }
+            else
+            {
+                _dragStartScale = target.localScale;
+            }
+
+            _draggedObject.localScale = _dragStartScale;
             _draggedObject.DOScale(_dragStartScale * dragScale, pickupDuration)
                 .SetEase(Ease.OutBack);
 
@@ -242,8 +258,8 @@ namespace AutoBattler.Client.Board
                     // vers un slot DIFFÉRENT de la position d'origine
                     if (_dragSource == DragSource.Board)
                     {
-                        float distFromStart = Vector3.Distance(worldPos, _dragStartPosition);
-                        if (distFromStart > slotSpacingThreshold)
+                        float xDistFromStart = Mathf.Abs(worldPos.x - _dragStartPosition.x);
+                        if (xDistFromStart > slotSpacingThreshold)
                         {
                             string excludeId = _draggedDraggable?.MinionInstanceId;
                             boardManager.ShowInsertionPreview(insertIdx, excludeId);
@@ -429,9 +445,9 @@ namespace AutoBattler.Client.Board
 
             // Réorganisation sur le board
             bool inBoard = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
-            float distFromStart = Vector3.Distance(dropPos, _dragStartPosition);
+            float xDistFromStart = Mathf.Abs(dropPos.x - _dragStartPosition.x);
 
-            if (inBoard && boardManager != null && distFromStart > slotSpacingThreshold)
+            if (inBoard && boardManager != null && xDistFromStart > slotSpacingThreshold)
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
@@ -442,7 +458,7 @@ namespace AutoBattler.Client.Board
                 _draggedObject.DOKill();
                 _draggedObject.localScale = _dragStartScale;
 
-                Debug.Log($"[DragDrop] Déplacer {instanceId} vers slot {slotIndex}, dist={distFromStart:F2}");
+                Debug.Log($"[DragDrop] Déplacer {instanceId} vers slot {slotIndex}, xDist={xDistFromStart:F2}");
                 GameManager.Instance.Server?.MoveMinionAsync(instanceId, slotIndex);
             }
             else

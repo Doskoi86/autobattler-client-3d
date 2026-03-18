@@ -25,6 +25,7 @@ namespace AutoBattler.Client.Cards
         [SerializeField] private float tokenScale = 1f;
 
         public float CardScale => cardScale;
+        public float TokenScale => tokenScale;
         public MinionArtDatabase MinionArtDb => minionArtDatabase;
 
         private void Awake()
