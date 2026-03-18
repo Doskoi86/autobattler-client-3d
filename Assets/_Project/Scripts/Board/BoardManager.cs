@@ -186,6 +186,78 @@ namespace AutoBattler.Client.Board
             return Mathf.Abs(worldPosition.z - center.z) < tolerance;
         }
 
+        // =====================================================
+        // INSERTION PREVIEW (pendant le drag)
+        // =====================================================
+
+        private int _previewIndex = -1;
+
+        [Header("Insertion Preview")]
+        [SerializeField] private float previewAnimDuration = 0.15f;
+
+        /// <summary>
+        /// Écarte les tokens existants pour montrer un espace à l'index d'insertion.
+        /// excludeId : si on déplace un minion du board, l'exclure du layout.
+        /// </summary>
+        public void ShowInsertionPreview(int insertionIndex, string excludeId = null)
+        {
+            if (insertionIndex == _previewIndex) return;
+            _previewIndex = insertionIndex;
+            Debug.Log($"[BoardManager] Preview index={insertionIndex}, exclude={excludeId ?? "none"}");
+
+            // Si on déplace un minion existant, le nombre de slots reste le même
+            // Si on ajoute un nouveau (depuis la main), on a un slot de plus
+            bool isReorder = !string.IsNullOrEmpty(excludeId);
+            int visibleCount = isReorder ? _playerBoard.Count : _playerBoard.Count + 1;
+            var positions = BoardLayout.CalculatePositions(visibleCount, PlayerBoardCenter, slotSpacing, arcAmount);
+
+            // Repositionner les tokens existants en sautant l'index d'insertion
+            int posIdx = 0;
+            for (int i = 0; i < _playerBoard.Count; i++)
+            {
+                var minionState = _playerBoard[i];
+
+                // Sauter le minion qu'on est en train de draguer
+                if (minionState.InstanceId == excludeId) continue;
+
+                // Sauter la position réservée pour l'insertion
+                if (posIdx == insertionIndex) posIdx++;
+                if (posIdx >= positions.Length) break;
+
+                if (_playerTokens.TryGetValue(minionState.InstanceId, out var token) && token != null)
+                {
+                    token.transform.DOKill();
+                    token.transform.DOMove(positions[posIdx], previewAnimDuration).SetEase(Ease.OutQuad);
+                }
+                posIdx++;
+            }
+        }
+
+        /// <summary>
+        /// Annule la preview et remet les tokens à leurs positions normales.
+        /// excludeId : ne pas repositionner le token en cours de drag.
+        /// </summary>
+        public void ClearInsertionPreview(string excludeId = null)
+        {
+            if (_previewIndex < 0) return;
+            Debug.Log($"[BoardManager] ClearPreview, exclude={excludeId ?? "none"}");
+            _previewIndex = -1;
+
+            int count = _playerBoard.Count;
+            var positions = BoardLayout.CalculatePositions(count, PlayerBoardCenter, slotSpacing, arcAmount);
+
+            for (int i = 0; i < count; i++)
+            {
+                var minionState = _playerBoard[i];
+                if (minionState.InstanceId == excludeId) continue;
+                if (_playerTokens.TryGetValue(minionState.InstanceId, out var token) && token != null)
+                {
+                    token.transform.DOKill();
+                    token.transform.DOMove(positions[i], previewAnimDuration).SetEase(Ease.OutQuad);
+                }
+            }
+        }
+
         /// <summary>
         /// Retourne le token d'un minion par son InstanceId.
         /// </summary>

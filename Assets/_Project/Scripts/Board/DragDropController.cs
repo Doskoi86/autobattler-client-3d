@@ -48,6 +48,9 @@ namespace AutoBattler.Client.Board
         [SerializeField] private float sellAnimDuration = 0.25f;
         [SerializeField] private float dragLiftOffset = 0.15f;
 
+        [Tooltip("Distance minimum à parcourir avant que la preview de réorganisation se déclenche")]
+        [SerializeField] private float slotSpacingThreshold = 1f;
+
         private enum DragSource { None, Shop, Hand, Board }
 
         [Header("Limits")]
@@ -67,6 +70,10 @@ namespace AutoBattler.Client.Board
         private Vector3 _dragStartScale;
         private DragSource _dragSource;
         private int _dragShopIndex;
+
+        // Drag depuis la main : token temporaire + carte originale cachée
+        private MinionTokenVisual _tempDragToken;
+        private CardVisual _hiddenHandCard;
         private Plane _dragPlane;
         private Dictionary<SpriteRenderer, int> _savedSortingOrders = new Dictionary<SpriteRenderer, int>();
 
@@ -135,8 +142,30 @@ namespace AutoBattler.Client.Board
             if (cardVisual != null && HandManager.Instance != null &&
                 HandManager.Instance.GetCard(cardVisual.MinionInstanceId) != null)
             {
-                // Remettre la carte à son état normal avant de sauvegarder le drag state
+                // Remettre la carte à son état normal
                 HandManager.Instance.ForceUnhover();
+
+                // Créer un token temporaire à la position de la carte
+                _hiddenHandCard = cardVisual;
+                var data = cardVisual.Data;
+                if (data != null && CardFactory.Instance != null)
+                {
+                    _tempDragToken = CardFactory.Instance.CreateToken(data, showTier: false, sortingLayer: "Drag");
+                    if (_tempDragToken != null)
+                    {
+                        _tempDragToken.transform.position = cardVisual.transform.position;
+                        _tempDragToken.DragEnabled = false; // pas draggable lui-même
+
+                        // Cacher la carte originale
+                        cardVisual.gameObject.SetActive(false);
+
+                        // Draguer le token temporaire au lieu de la carte
+                        StartDrag(_tempDragToken.transform, cardVisual, DragSource.Hand, -1);
+                        return;
+                    }
+                }
+
+                // Fallback si la création du token échoue
                 StartDrag(bestTarget, bestDraggable, DragSource.Hand, -1);
                 return;
             }
@@ -202,6 +231,34 @@ namespace AutoBattler.Client.Board
                     dragPlaneHeight + dragLiftOffset,
                     worldPos.z
                 );
+
+                // Insertion preview : écarter les tokens du board quand on survole la zone
+                if ((_dragSource == DragSource.Hand || _dragSource == DragSource.Board) &&
+                    boardManager != null && dropZoneBoard != null && dropZoneBoard.Contains(worldPos))
+                {
+                    int insertIdx = boardManager.GetInsertionIndex(worldPos);
+
+                    // Pour le board drag : ne montrer la preview que si on a bougé
+                    // vers un slot DIFFÉRENT de la position d'origine
+                    if (_dragSource == DragSource.Board)
+                    {
+                        float distFromStart = Vector3.Distance(worldPos, _dragStartPosition);
+                        if (distFromStart > slotSpacingThreshold)
+                        {
+                            string excludeId = _draggedDraggable?.MinionInstanceId;
+                            boardManager.ShowInsertionPreview(insertIdx, excludeId);
+                        }
+                    }
+                    else
+                    {
+                        boardManager.ShowInsertionPreview(insertIdx);
+                    }
+                }
+                else if (boardManager != null)
+                {
+                    string excludeId = _dragSource == DragSource.Board ? _draggedDraggable?.MinionInstanceId : null;
+                    boardManager.ClearInsertionPreview(excludeId);
+                }
             }
 
             if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame)
@@ -217,6 +274,11 @@ namespace AutoBattler.Client.Board
             _isDragging = false;
             IsDragging = false;
             SetDropZonesVisible(false);
+            if (boardManager != null)
+            {
+                string excludeId = _dragSource == DragSource.Board ? _draggedDraggable?.MinionInstanceId : null;
+                boardManager.ClearInsertionPreview(excludeId);
+            }
 
             if (_draggedObject == null) return;
 
@@ -294,7 +356,7 @@ namespace AutoBattler.Client.Board
         {
             if (_draggedDraggable == null)
             {
-                ReturnToStart();
+                CancelHandDrag();
                 ClearDragState();
                 return;
             }
@@ -303,7 +365,7 @@ namespace AutoBattler.Client.Board
             if (boardManager != null && boardManager.PlayerMinionCount >= maxBoardSize)
             {
                 Debug.Log($"[DragDrop] Board plein ({boardManager.PlayerMinionCount}/{maxBoardSize}) !");
-                ReturnToStart();
+                CancelHandDrag();
                 ClearDragState();
                 return;
             }
@@ -313,25 +375,18 @@ namespace AutoBattler.Client.Board
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
+
+                // Détruire le token temp AVANT l'appel serveur
+                // (le serveur crée le vrai token via OnBoardUpdated)
+                CleanupTempDragToken();
+
                 GameManager.Instance.Server?.PlayMinionAsync(instanceId, slotIndex);
-
                 Debug.Log($"[DragDrop] Jouer {instanceId} au slot {slotIndex}");
-
-                // Animer la carte vers le board puis la désactiver
-                var target = _draggedObject;
-                var boardCenter = boardManager.PlayerBoardCenter;
-                target.DOKill();
-                DOTween.Sequence()
-                    .Append(target.DOMove(boardCenter + Vector3.up * 0.1f, dropDuration).SetEase(Ease.OutQuad))
-                    .Join(target.DOScale(Vector3.zero, dropDuration).SetEase(Ease.InBack))
-                    .OnComplete(() =>
-                    {
-                        if (target != null) target.gameObject.SetActive(false);
-                    });
             }
             else
             {
-                ReturnToStart();
+                // Annulé : réafficher la carte en main
+                CancelHandDrag();
             }
 
             ClearDragState();
@@ -374,7 +429,9 @@ namespace AutoBattler.Client.Board
 
             // Réorganisation sur le board
             bool inBoard = dropZoneBoard != null && dropZoneBoard.Contains(dropPos);
-            if (inBoard && boardManager != null)
+            float distFromStart = Vector3.Distance(dropPos, _dragStartPosition);
+
+            if (inBoard && boardManager != null && distFromStart > slotSpacingThreshold)
             {
                 int slotIndex = boardManager.GetInsertionIndex(dropPos);
                 string instanceId = _draggedDraggable.MinionInstanceId;
@@ -385,12 +442,12 @@ namespace AutoBattler.Client.Board
                 _draggedObject.DOKill();
                 _draggedObject.localScale = _dragStartScale;
 
-                Debug.Log($"[DragDrop] Déplacer {instanceId} vers slot {slotIndex}");
+                Debug.Log($"[DragDrop] Déplacer {instanceId} vers slot {slotIndex}, dist={distFromStart:F2}");
                 GameManager.Instance.Server?.MoveMinionAsync(instanceId, slotIndex);
             }
             else
             {
-                // Hors zone → retour à la position de départ
+                // Pas assez bougé ou hors zone → retour à la position de départ
                 ReturnToStart();
             }
 
@@ -399,8 +456,16 @@ namespace AutoBattler.Client.Board
 
         private void ReturnToStart()
         {
+            // Si c'est un drag depuis la main, annuler proprement
+            if (_dragSource == DragSource.Hand)
+            {
+                CancelHandDrag();
+                return;
+            }
+
             if (_draggedObject == null) return;
             var target = _draggedObject;
+            Debug.Log($"[DragDrop] ReturnToStart pos={target.position}, startPos={_dragStartPosition}");
 
             RestoreSortingOrder(target);
             target.DOKill();
@@ -413,6 +478,29 @@ namespace AutoBattler.Client.Board
         {
             _draggedObject = null;
             _draggedDraggable = null;
+        }
+
+        /// <summary>
+        /// Nettoie le token temporaire créé pour le drag depuis la main.
+        /// </summary>
+        private void CleanupTempDragToken()
+        {
+            if (_tempDragToken != null)
+            {
+                Destroy(_tempDragToken.gameObject);
+                _tempDragToken = null;
+            }
+            _hiddenHandCard = null;
+        }
+
+        /// <summary>
+        /// Annule le drag depuis la main : détruit le token temp, réaffiche la carte.
+        /// </summary>
+        private void CancelHandDrag()
+        {
+            if (_hiddenHandCard != null)
+                _hiddenHandCard.gameObject.SetActive(true);
+            CleanupTempDragToken();
         }
 
         private void CancelDrag()
